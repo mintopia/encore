@@ -23,6 +23,7 @@ export default defineConfig({
       { text: "Features", link: "/features/" },
       { text: "Snapcast", link: "/audio/snapcast" },
       { text: "Advanced", link: "/advanced/relay" },
+      { text: "Sponsor", link: "/support" },
     ],
     sidebar: [
       {
@@ -71,13 +72,14 @@ export default defineConfig({
         ],
       },
       { text: "FAQ", link: "/faq" },
+      { text: "Support Encore", link: "/support" },
     ],
     socialLinks: [{ icon: "github", link: repo }],
     editLink: { pattern: `${repo}/edit/develop/site/:path`, text: "Edit this page on GitHub" },
     search: { provider: "local" },
     outline: { level: [2, 3] },
     footer: {
-      message: "MIT licensed. Encore wraps Spotify Soloist and is not affiliated with or endorsed by Spotify or Raspberry Pi Ltd.",
+      message: 'MIT licensed. Encore wraps Spotify Soloist and is not affiliated with or endorsed by Spotify or Raspberry Pi Ltd. <a href="https://github.com/sponsors/mintopia">Sponsor on GitHub</a>',
       copyright: "© 2026 Jessica Smith",
     },
   },

@@ -1,94 +1,130 @@
-/* Tokens lifted from DESIGN.md: "Clean & Light" (light) and "Cold Glass" (dark). */
+/* App tokens, lifted verbatim from DESIGN.md ("Clean & Light" / "Cold Glass"). */
 :root {
-  --vp-font-family-base: 'Instrument Sans', system-ui, sans-serif;
+  --bg:#edece8; --card:#ffffff; --sub:#fbfbf9; --line:#e9e9e5; --line2:#dcdcd7;
+  --txt:#1b1b1a; --dim:#6d6d68; --faint:#78776f;
+  --ind:#0d9488; --ind-h:#0f766e; --ind-s:#e2f5f1; --link:#0f766e;
+  --ok:#16a34a; --ok-s:#eafaf0; --bad:#dc2626; --bad-s:#fdeaea; --warn:#b45309; --warn-s:#fdf3e7;
+  --sans:'Instrument Sans',system-ui,sans-serif;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --sh:0 1px 2px rgba(20,20,20,.05); --sh2:0 12px 40px rgba(30,30,40,.10);
+  --bar:rgba(255,255,255,.66);
+}
+.dark {
+  --bg:#0b0f16; --card:#161e2b; --sub:#10161f; --line:#273241; --line2:#37455a;
+  --txt:#eef2f8; --dim:#a8b6c8; --faint:#8695a8;
+  --ind:#2dd4bf; --ind-h:#5eead4; --ind-s:rgba(45,212,191,.18); --link:#5eead4;
+  --ok:#4ade80; --ok-s:rgba(74,222,128,.14); --bad:#fb7185; --bad-s:rgba(251,113,133,.15);
+  --warn:#fbbf24; --warn-s:rgba(251,191,36,.14);
+  --sh:0 1px 2px rgba(0,0,0,.5); --sh2:0 16px 46px rgba(0,0,0,.55);
+  --bar:rgba(18,25,36,.58);
+}
+
+/* VitePress mapped onto the app tokens. */
+:root, .dark {
+  --vp-font-family-base: var(--sans);
   --vp-font-family-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  --vp-c-bg: #f6f5f2;
-  --vp-c-bg-alt: #edece8;
-  --vp-c-bg-soft: #fbfbf9;
-  --vp-c-bg-elv: #ffffff;
-  --vp-c-divider: #e9e9e5;
-  --vp-c-border: #dcdcd7;
-  --vp-c-gutter: #e9e9e5;
-  --vp-c-text-1: #1b1b1a;
-  --vp-c-text-2: #6d6d68;
-  --vp-c-text-3: #78776f;
+  --vp-c-bg: var(--sub);
+  --vp-c-bg-alt: var(--bg);
+  --vp-c-bg-soft: var(--bg);
+  --vp-c-bg-elv: var(--card);
+  --vp-c-divider: var(--line);
+  --vp-c-border: var(--line2);
+  --vp-c-gutter: var(--line);
+  --vp-c-text-1: var(--txt);
+  --vp-c-text-2: var(--dim);
+  --vp-c-text-3: var(--faint);
 
-  --vp-c-brand-1: #0f766e;
-  --vp-c-brand-2: #0d9488;
-  --vp-c-brand-3: #0d9488;
-  --vp-c-brand-soft: #e2f5f1;
+  --vp-c-brand-1: var(--link);
+  --vp-c-brand-2: var(--ind-h);
+  --vp-c-brand-3: var(--ind);
+  --vp-c-brand-soft: var(--ind-s);
 
-  --vp-c-tip-1: #0f766e;
-  --vp-c-tip-soft: #e2f5f1;
-  --vp-c-warning-1: #b45309;
-  --vp-c-warning-soft: #fdf3e7;
-  --vp-c-danger-1: #dc2626;
-  --vp-c-danger-soft: #fdeaea;
+  --vp-c-tip-1: var(--link);
+  --vp-c-tip-2: var(--ind-h);
+  --vp-c-tip-soft: var(--ind-s);
+  --vp-c-note-1: var(--link);
+  --vp-c-note-soft: var(--ind-s);
+  --vp-c-warning-1: var(--warn);
+  --vp-c-warning-soft: var(--warn-s);
+  --vp-c-danger-1: var(--bad);
+  --vp-c-danger-soft: var(--bad-s);
 
-  --vp-button-brand-bg: #0d9488;
-  --vp-button-brand-hover-bg: #0f766e;
-  --vp-button-brand-active-bg: #0f766e;
+  --vp-nav-bg-color: var(--bar);
+  --vp-sidebar-bg-color: var(--bg);
+  --vp-code-block-bg: var(--bg);
+  --vp-code-bg: var(--bg);
+  --vp-code-color: var(--link);
 
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #0d9488 20%, #0891b2);
-  --vp-home-hero-image-background-image: radial-gradient(circle, rgba(13,148,136,.35), rgba(8,145,178,.15) 60%, transparent 70%);
-  --vp-home-hero-image-filter: blur(56px);
+  --vp-button-brand-bg: var(--ind);
+  --vp-button-brand-border: var(--ind);
+  --vp-button-brand-hover-bg: var(--ind-h);
+  --vp-button-brand-hover-border: var(--ind-h);
+  --vp-button-brand-active-bg: var(--ind-h);
 }
-
 .dark {
-  --vp-c-bg: #0b0f16;
-  --vp-c-bg-alt: #10161f;
-  --vp-c-bg-soft: #161e2b;
-  --vp-c-bg-elv: #161e2b;
-  --vp-c-divider: #273241;
-  --vp-c-border: #37455a;
-  --vp-c-gutter: #0b0f16;
-  --vp-c-text-1: #eef2f8;
-  --vp-c-text-2: #a8b6c8;
-  --vp-c-text-3: #8695a8;
-
-  --vp-c-brand-1: #5eead4;
-  --vp-c-brand-2: #2dd4bf;
-  --vp-c-brand-3: #14b8a6;
-  --vp-c-brand-soft: rgba(45,212,191,.18);
-
-  --vp-c-tip-1: #5eead4;
-  --vp-c-tip-soft: rgba(45,212,191,.14);
-  --vp-c-warning-1: #fbbf24;
-  --vp-c-warning-soft: rgba(251,191,36,.14);
-  --vp-c-danger-1: #fb7185;
-  --vp-c-danger-soft: rgba(251,113,133,.14);
-
-  --vp-button-brand-bg: #0d9488;
-  --vp-button-brand-hover-bg: #14b8a6;
-  --vp-button-brand-text: #ffffff;
+  --vp-c-bg: var(--bg);
+  --vp-c-bg-alt: var(--sub);
+  --vp-c-bg-soft: var(--card);
+  --vp-sidebar-bg-color: var(--sub);
+  --vp-code-block-bg: var(--sub);
+  --vp-code-bg: var(--card);
+  --vp-button-brand-text: #04201d;
+  --vp-button-brand-hover-text: #04201d;
 }
 
-h1, h2, h3, .VPHero .name, .VPHero .text, .VPFeature .title, .VPNavBarTitle .title {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  letter-spacing: -.015em;
+/* Glass nav bar, as in the console's top bar. */
+.VPNavBar:not(.home.top) .content-body,
+.VPNavBar.has-sidebar .content-body {
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
 }
 
-.VPHero .name, .VPHero .text { font-weight: 700; }
-
-.VPFeature {
-  border-radius: 16px !important;
-  box-shadow: 0 1px 2px rgba(20,20,20,.05);
+h1, h2, h3, .VPNavBarTitle .title {
+  font-family: var(--disp);
 }
-.dark .VPFeature {
-  background: rgba(148,163,184,.08) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.35);
+.vp-doc h1 { font-weight: 700; letter-spacing: -0.02em; }
+.vp-doc h2 { font-weight: 700; letter-spacing: -0.015em; border-top-color: var(--line); }
+.vp-doc h3 { font-weight: 700; letter-spacing: -0.01em; }
+.VPNavBarTitle .title { font-weight: 700; letter-spacing: -0.01em; }
+
+/* Sidebar group titles use the console's section-label style. */
+.VPSidebarItem.level-0 > .item > .text,
+.VPSidebarItem.level-0 > .item h2.text {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.VPSidebarItem.level-0.is-link > .item > .link > .text {
+  font-size: 14px; letter-spacing: 0; text-transform: none;
 }
 
+/* Ambient blooms behind the home page, colder and larger in dark. */
+.VPHome {
+  background:
+    radial-gradient(800px 520px at 82% 0%, rgba(13,148,136,.10), transparent 70%),
+    radial-gradient(700px 600px at 0% 30%, rgba(8,145,178,.07), transparent 70%);
+}
+.dark .VPHome {
+  background:
+    radial-gradient(1000px 640px at 82% -5%, rgba(45,212,191,.13), transparent 70%),
+    radial-gradient(900px 760px at -5% 35%, rgba(8,145,178,.12), transparent 70%);
+}
+.VPHome { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+.home-install { padding-top: 16px; }
+.VPHome .vp-doc h2 { font-size: 24px; }
+
+/* Screenshots: one elevation, no ghost border. */
 .vp-doc img.shot {
-  border: 1px solid var(--vp-c-divider);
   border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(30,30,40,.10);
+  box-shadow: var(--sh2);
   margin: 20px 0;
 }
-.dark .vp-doc img.shot { box-shadow: 0 16px 46px rgba(0,0,0,.55); }
 
+/* Numbered setup steps. */
 .vp-doc .steps > ol { counter-reset: step; list-style: none; padding-left: 0; }
 .vp-doc .steps > ol > li {
   counter-increment: step;
@@ -101,10 +137,36 @@ h1, h2, h3, .VPHero .name, .VPHero .text, .VPFeature .title, .VPNavBarTitle .tit
   position: absolute; left: 0; top: -2px;
   width: 28px; height: 28px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1);
-  font: 600 13px/1 'Space Grotesk', system-ui, sans-serif;
+  background: var(--ind-s); color: var(--link);
+  font: 700 13px/1 var(--disp);
+  font-variant-numeric: tabular-nums;
 }
 
-.compare td:first-child { font-weight: 600; white-space: nowrap; }
+.vp-doc a.sponsor-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--ind);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.18s;
+}
+.vp-doc a.sponsor-btn:hover { background: var(--ind-h); color: #fff; }
+.dark .vp-doc a.sponsor-btn, .dark .vp-doc a.sponsor-btn:hover { color: #04201d; }
+.VPFooter .message a { color: var(--link); text-underline-offset: 3px; }
 
-::selection { background: var(--vp-c-brand-soft); }
+.compare td:first-child { font-weight: 600; white-space: nowrap; }
+.vp-doc table { font-variant-numeric: tabular-nums; }
+
+/* Browser surfaces themed from the palette. */
+html { accent-color: var(--ind); scrollbar-color: var(--line2) transparent; }
+::selection { background: var(--ind-s); color: var(--txt); }
+input, textarea { caret-color: var(--ind); }
+:focus-visible { outline: 2px solid var(--ind); outline-offset: 2px; border-radius: 4px; }
+.vp-doc a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
