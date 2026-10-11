@@ -1,0 +1,172 @@
+/* App tokens, lifted verbatim from DESIGN.md ("Clean & Light" / "Cold Glass"). */
+:root {
+  --bg:#edece8; --card:#ffffff; --sub:#fbfbf9; --line:#e9e9e5; --line2:#dcdcd7;
+  --txt:#1b1b1a; --dim:#6d6d68; --faint:#78776f;
+  --ind:#0d9488; --ind-h:#0f766e; --ind-s:#e2f5f1; --link:#0f766e;
+  --ok:#16a34a; --ok-s:#eafaf0; --bad:#dc2626; --bad-s:#fdeaea; --warn:#b45309; --warn-s:#fdf3e7;
+  --sans:'Instrument Sans',system-ui,sans-serif;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --sh:0 1px 2px rgba(20,20,20,.05); --sh2:0 12px 40px rgba(30,30,40,.10);
+  --bar:rgba(255,255,255,.66);
+}
+.dark {
+  --bg:#0b0f16; --card:#161e2b; --sub:#10161f; --line:#273241; --line2:#37455a;
+  --txt:#eef2f8; --dim:#a8b6c8; --faint:#8695a8;
+  --ind:#2dd4bf; --ind-h:#5eead4; --ind-s:rgba(45,212,191,.18); --link:#5eead4;
+  --ok:#4ade80; --ok-s:rgba(74,222,128,.14); --bad:#fb7185; --bad-s:rgba(251,113,133,.15);
+  --warn:#fbbf24; --warn-s:rgba(251,191,36,.14);
+  --sh:0 1px 2px rgba(0,0,0,.5); --sh2:0 16px 46px rgba(0,0,0,.55);
+  --bar:rgba(18,25,36,.58);
+}
+
+/* VitePress mapped onto the app tokens. */
+:root, .dark {
+  --vp-font-family-base: var(--sans);
+  --vp-font-family-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --vp-c-bg: var(--sub);
+  --vp-c-bg-alt: var(--bg);
+  --vp-c-bg-soft: var(--bg);
+  --vp-c-bg-elv: var(--card);
+  --vp-c-divider: var(--line);
+  --vp-c-border: var(--line2);
+  --vp-c-gutter: var(--line);
+  --vp-c-text-1: var(--txt);
+  --vp-c-text-2: var(--dim);
+  --vp-c-text-3: var(--faint);
+
+  --vp-c-brand-1: var(--link);
+  --vp-c-brand-2: var(--ind-h);
+  --vp-c-brand-3: var(--ind);
+  --vp-c-brand-soft: var(--ind-s);
+
+  --vp-c-tip-1: var(--link);
+  --vp-c-tip-2: var(--ind-h);
+  --vp-c-tip-soft: var(--ind-s);
+  --vp-c-note-1: var(--link);
+  --vp-c-note-soft: var(--ind-s);
+  --vp-c-warning-1: var(--warn);
+  --vp-c-warning-soft: var(--warn-s);
+  --vp-c-danger-1: var(--bad);
+  --vp-c-danger-soft: var(--bad-s);
+
+  --vp-nav-bg-color: var(--bar);
+  --vp-sidebar-bg-color: var(--bg);
+  --vp-code-block-bg: var(--bg);
+  --vp-code-bg: var(--bg);
+  --vp-code-color: var(--link);
+
+  --vp-button-brand-bg: var(--ind);
+  --vp-button-brand-border: var(--ind);
+  --vp-button-brand-hover-bg: var(--ind-h);
+  --vp-button-brand-hover-border: var(--ind-h);
+  --vp-button-brand-active-bg: var(--ind-h);
+}
+.dark {
+  --vp-c-bg: var(--bg);
+  --vp-c-bg-alt: var(--sub);
+  --vp-c-bg-soft: var(--card);
+  --vp-sidebar-bg-color: var(--sub);
+  --vp-code-block-bg: var(--sub);
+  --vp-code-bg: var(--card);
+  --vp-button-brand-text: #04201d;
+  --vp-button-brand-hover-text: #04201d;
+}
+
+/* Glass nav bar, as in the console's top bar. */
+.VPNavBar:not(.home.top) .content-body,
+.VPNavBar.has-sidebar .content-body {
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+
+h1, h2, h3, .VPNavBarTitle .title {
+  font-family: var(--disp);
+}
+.vp-doc h1 { font-weight: 700; letter-spacing: -0.02em; }
+.vp-doc h2 { font-weight: 700; letter-spacing: -0.015em; border-top-color: var(--line); }
+.vp-doc h3 { font-weight: 700; letter-spacing: -0.01em; }
+.VPNavBarTitle .title { font-weight: 700; letter-spacing: -0.01em; }
+
+/* Sidebar group titles use the console's section-label style. */
+.VPSidebarItem.level-0 > .item > .text,
+.VPSidebarItem.level-0 > .item h2.text {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.VPSidebarItem.level-0.is-link > .item > .link > .text {
+  font-size: 14px; letter-spacing: 0; text-transform: none;
+}
+
+/* Ambient blooms behind the home page, colder and larger in dark. */
+.VPHome {
+  background:
+    radial-gradient(800px 520px at 82% 0%, rgba(13,148,136,.10), transparent 70%),
+    radial-gradient(700px 600px at 0% 30%, rgba(8,145,178,.07), transparent 70%);
+}
+.dark .VPHome {
+  background:
+    radial-gradient(1000px 640px at 82% -5%, rgba(45,212,191,.13), transparent 70%),
+    radial-gradient(900px 760px at -5% 35%, rgba(8,145,178,.12), transparent 70%);
+}
+.VPHome { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+.home-install { padding-top: 16px; }
+.VPHome .vp-doc h2 { font-size: 24px; }
+
+/* Screenshots: one elevation, no ghost border. */
+.vp-doc img.shot {
+  border-radius: 16px;
+  box-shadow: var(--sh2);
+  margin: 20px 0;
+}
+
+/* Numbered setup steps. */
+.vp-doc .steps > ol { counter-reset: step; list-style: none; padding-left: 0; }
+.vp-doc .steps > ol > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 44px;
+  margin: 18px 0;
+}
+.vp-doc .steps > ol > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: -2px;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ind-s); color: var(--link);
+  font: 700 13px/1 var(--disp);
+  font-variant-numeric: tabular-nums;
+}
+
+.vp-doc a.sponsor-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--ind);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.18s;
+}
+.vp-doc a.sponsor-btn:hover { background: var(--ind-h); color: #fff; }
+.dark .vp-doc a.sponsor-btn, .dark .vp-doc a.sponsor-btn:hover { color: #04201d; }
+.VPFooter .message a { color: var(--link); text-underline-offset: 3px; }
+
+.compare td:first-child { font-weight: 600; white-space: nowrap; }
+.vp-doc table { font-variant-numeric: tabular-nums; }
+
+/* Browser surfaces themed from the palette. */
+html { accent-color: var(--ind); scrollbar-color: var(--line2) transparent; }
+::selection { background: var(--ind-s); color: var(--txt); }
+input, textarea { caret-color: var(--ind); }
+:focus-visible { outline: 2px solid var(--ind); outline-offset: 2px; border-radius: 4px; }
+.vp-doc a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }

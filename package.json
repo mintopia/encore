@@ -1,18 +1,18 @@
 {
-  "name": "@mintopia/musicparty-soloist",
+  "name": "@mintopia/encore",
   "version": "2.0.1",
   "description": "Authenticating WebSocket proxy + supervisor for Spotify Soloist.",
   "license": "MIT",
   "author": "Jessica Smith <jess@mintopia.net>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mintopia/musicparty-soloist.git"
+    "url": "git+https://github.com/mintopia/encore.git"
   },
-  "homepage": "https://github.com/mintopia/musicparty-soloist#readme",
-  "bugs": "https://github.com/mintopia/musicparty-soloist/issues",
+  "homepage": "https://github.com/mintopia/encore#readme",
+  "bugs": "https://github.com/mintopia/encore/issues",
   "type": "module",
   "bin": {
-    "soloist-proxy": "dist/main.js"
+    "encore": "dist/main.js"
   },
   "files": [
     "dist"

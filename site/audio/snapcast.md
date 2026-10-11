@@ -1,0 +1,75 @@
+# Snapcast server
+
+The Docker image includes a [Snapcast](https://github.com/badaix/snapcast) server. Snapcast
+streams audio to any number of clients and keeps them in sync, so music plays in time in
+every room, from one Spotify device.
+
+It's on by default. The Spotify stream is available to clients as soon as Encore starts.
+
+## Adding a room
+
+Any Linux machine, including another Pi, can be a room. Install the client:
+
+```bash
+sudo apt install snapclient
+```
+
+Clients usually find the server automatically over mDNS. To point one at your Encore Pi
+explicitly, set the host in `/etc/default/snapclient`:
+
+```bash
+SNAPCLIENT_OPTS="--host encore.local"
+```
+
+then `sudo systemctl restart snapclient`.
+
+Snapcast also has clients for Android, a browser player in Snapweb, and integrations for
+Home Assistant and others. See the
+[Snapcast project](https://github.com/badaix/snapcast#client) for the full list.
+
+## Snapweb
+
+Snapweb, Snapcast's web UI, is at `http://<your-pi>:1780`. Use it to set per-room volumes,
+group rooms and adjust latency. It's linked from the menu in the Encore console. Turn it off
+with **Enable Snapweb** in **Settings → Snapcast**.
+
+## Customising snapserver.conf
+
+**Settings → Snapcast** includes the full `snapserver.conf` as an editable template, for
+changing the codec, buffer size, ports and so on. Two placeholders are filled in when it's
+written:
+
+| Placeholder | Becomes |
+|---|---|
+| <code v-pre>{{stream}}</code> | The `source = pipewire://…` line carrying Soloist's audio. Keep it. |
+| <code v-pre>{{snapweb}}</code> | `true` or `false`, from the Enable Snapweb toggle |
+
+The default:
+
+```ini-vue
+[stream]
+{{stream}}
+
+[http]
+enabled = {{snapweb}}
+bind_to_address = 0.0.0.0
+port = 1780
+doc_root = /usr/share/snapserver/snapweb
+```
+
+Snapserver only reads its config on start, so after saving, a banner offers to **restart
+Snapcast**. That briefly drops audio to Snapcast clients. Soloist and local outputs keep
+playing.
+
+The stream name clients see (default `Spotify`) is set on the Snapcast row in
+**Settings → Audio Outputs**.
+
+## Ports
+
+| Port | What |
+|---|---|
+| 1704 | Audio stream to clients |
+| 1705 | Control (JSON-RPC) |
+| 1780 | Snapweb and HTTP API |
+
+Already running a Snapserver elsewhere? [Send to it](/audio/sending) as well.

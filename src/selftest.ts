@@ -9,14 +9,18 @@ import { sameOrigin, resolveAuth } from "./auth.js";
 import { safeStrEqual, deferred } from "./util.js";
 import { makeLog } from "./log.js";
 import { backoffStep, BACKOFF_BASE, BACKOFF_MAX } from "./supervisor.js";
-import { shouldAutoplay, AUTOPLAY_FRAMES, autoplayFrames, listenParts, buildProxyStatus, makeServer } from "./proxy.js";
+import { shouldAutoplay, AUTOPLAY_FRAMES, autoplayFrames, listenParts, effectiveListen, buildProxyStatus, makeServer } from "./proxy.js";
 import { decodeFrame, SoloistHub, type UpstreamFrame } from "./hub.js";
 import { resolveWebhookUrl, WebhookQueue, WebhookHistory, postWebhook, WEBHOOK_RESP_BODY_CAP, WEBHOOK_RESP_HEADER_ALLOWLIST, type WebhookDelivery } from "./webhooks.js";
-import { SoloistRelay } from "./relay.js";
+import { SoloistRelay, pusherSubscribe } from "./relay.js";
 import { AppControl, appControlAllowed, sessionFingerprint, DEBUG_STREAMS, BUFFER_DROP_BYTES, BUFFER_CLOSE_BYTES, APP_CONTROL_PATH, APP_CONTROL_MAX_PAYLOAD } from "./appcontrol.js";
 import { DEBUG_STREAMS as WIRE_DEBUG_STREAMS, type ProxyStatus } from "./wire-contract.js";
 import { createServer } from "node:http";
-import { createServer as createTcpServer } from "node:net";
+import { createServer as createTcpServer, createConnection as createTcpConnection } from "node:net";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import type { ChildProcess } from "node:child_process";
+import { ExternalSnapcast } from "./snapexternal.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
@@ -329,6 +333,10 @@ assert.deepEqual(listenParts(":8687"), { host: "0.0.0.0", port: 8687 }, "no host
 assert.deepEqual(listenParts("[::1]:8687"), { host: "::1", port: 8687 }, "IPv6 literal splits at the port colon and sheds its brackets for server.listen");
 assert.throws(() => listenParts("8687"), /invalid proxy.listen/, "no colon: clear error, not NaN");
 assert.throws(() => listenParts("host:notaport"), /invalid proxy.listen/, "non-numeric port: clear error");
+assert.deepEqual(effectiveListen("0.0.0.0:80", {}), { host: "0.0.0.0", port: 80 }, "no ENCORE_PORT: config port");
+assert.deepEqual(effectiveListen("127.0.0.1:80", { ENCORE_PORT: "8687" }), { host: "127.0.0.1", port: 8687 }, "ENCORE_PORT overrides the port, keeps the host");
+assert.deepEqual(effectiveListen("0.0.0.0:80", { ENCORE_PORT: " " }), { host: "0.0.0.0", port: 80 }, "blank ENCORE_PORT is ignored");
+assert.throws(() => effectiveListen("0.0.0.0:80", { ENCORE_PORT: "70000" }), /invalid ENCORE_PORT/, "out-of-range ENCORE_PORT: clear error");
 assert.throws(() => listenParts("host:0"), /invalid proxy.listen/, "port 0: clear error");
 });
 
@@ -687,6 +695,9 @@ await test("loadConfig: literals, section defaults, missing file", async () => {
   assert.deepEqual(cfg.audio.outputDelays, {}, "audio.output_delays absent -> {}");
   assert.equal(cfg.relay.url, "", "relay.url absent -> empty (off)");
   assert.equal(cfg.relay.authorization, "", "relay.authorization absent -> empty");
+  assert.equal(cfg.relay.pusher, false, "relay.pusher defaults off");
+  assert.equal(cfg.relay.channel, "", "relay.channel absent -> empty");
+  assert.deepEqual(cfg.audio.externalSnapcast, { mode: "off", host: "", port: 4953 }, "audio.external_snapcast absent -> off, default port");
   assert.deepEqual(cfg.overlay, DEFAULT_OVERLAY, "overlay absent -> defaults");
   const litPath = join(dir, "literal.yaml");
   writeFileSync(litPath, ['soloist:', '  device_name: "d"', '  api_key: "${API}"', "  extra_args: []", "proxy:", '  token: "t"'].join("\n"));
@@ -802,9 +813,10 @@ await test("config API secret handling (mask/summary/apply/webhook-replace)", as
   sCfg.proxy.readonlyToken = "SECRET_RO";
   sCfg.webhooks.secret = "SECRET_WH";
   sCfg.relay.authorization = "SECRET_RELAY";
+  sCfg.relay.appSecret = "SECRET_RELAY_APP";
   sCfg.web.password = "SECRET_PW";
   sCfg.web.sessionSecret = "SECRET_SESS";
-  const SECRETS = ["SECRET_API", "SECRET_TOK", "SECRET_RO", "SECRET_WH", "SECRET_RELAY", "SECRET_PW", "SECRET_SESS"];
+  const SECRETS = ["SECRET_API", "SECRET_TOK", "SECRET_RO", "SECRET_WH", "SECRET_RELAY", "SECRET_RELAY_APP", "SECRET_PW", "SECRET_SESS"];
 
   const masked = maskConfig(sCfg) as any;
   assertNoLeak("maskConfig", masked, SECRETS);
@@ -837,6 +849,20 @@ await test("config API secret handling (mask/summary/apply/webhook-replace)", as
   assert.equal(applied.soloist.dataDir, sCfg.soloist.dataDir, "locked data_dir unchanged");
   assert.throws(() => applyApiConfig(sCfg, "nope"), ConfigError, "non-object body rejected");
   assert.throws(() => applyApiConfig(sCfg, { webhooks: { urls: "nope" } }), ConfigError, "invalid result rejected");
+
+  const cleared = applyApiConfig(sCfg, {
+    soloist: { apiKey: "" },
+    webhooks: { secret: "" },
+    relay: { authorization: "", appSecret: "" },
+    proxy: { token: "" },
+    web: { password: "" },
+  });
+  assert.equal(cleared.soloist.apiKey, "", "empty-string apiKey clears it");
+  assert.equal(cleared.webhooks.secret, "", "empty-string webhook secret clears it");
+  assert.equal(cleared.relay.authorization, "", "empty-string relay authorization clears it");
+  assert.equal(cleared.relay.appSecret, "", "empty-string relay app secret clears it");
+  assert.equal(cleared.proxy.token, "SECRET_TOK", "auth token can't be cleared (required, regenerated at boot)");
+  assert.equal(cleared.web.password, "SECRET_PW", "web password can't be cleared (would reopen Setup)");
 
   const pwApplied = applyApiConfig(sCfg, { web: { password: "plaintext-pw" } });
   assert.ok(isPasswordHashed(pwApplied.web.password), "PUT plaintext password stored hashed");
@@ -1393,6 +1419,101 @@ await test("Relay bridge republishes frames", async () => {
 });
 
 
+await test("pusherSubscribe signs private/presence channels like Reverb verifies them", async () => {
+  assert.deepEqual(JSON.parse(pusherSubscribe("soloist", "1.2", "", "")), { event: "pusher:subscribe", data: { channel: "soloist" } }, "public channel: no auth");
+  const sig = createHmac("sha256", "s3cret").update("1.2:private-soloist").digest("hex");
+  assert.deepEqual(JSON.parse(pusherSubscribe("private-soloist", "1.2", "key", "s3cret")), { event: "pusher:subscribe", data: { channel: "private-soloist", auth: `key:${sig}` } }, "private: key:HMAC(socket_id:channel)");
+  const pres = JSON.parse(pusherSubscribe("presence-soloist", "1.2", "key", "s3cret")).data;
+  const psig = createHmac("sha256", "s3cret").update(`1.2:presence-soloist:${pres.channel_data}`).digest("hex");
+  assert.equal(pres.auth, `key:${psig}`, "presence: signature covers channel_data");
+  assert.equal(JSON.parse(pres.channel_data).user_id, "soloist-1.2", "presence: user_id set");
+});
+
+
+await test("Relay bridge in Pusher mode (Reverb semantics)", async () => {
+  const pWait = async (pred: () => boolean): Promise<void> => {
+    for (let i = 0; i < 400 && !pred(); i++) await new Promise((r) => setTimeout(r, 10));
+  };
+  const upstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  const relaySrv = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  await Promise.all([once(upstream, "listening"), once(relaySrv, "listening")]);
+  const upPort = (upstream.address() as { port: number }).port;
+  const relayPort = (relaySrv.address() as { port: number }).port;
+
+  const gotUpstream: string[] = [];
+  upstream.on("connection", (ws) => ws.on("message", (d: RawData) => gotUpstream.push(d.toString())));
+  const gotRelay: Record<string, unknown>[] = [];
+  let relayConn: WebSocket | null = null;
+  let dials = 0;
+  relaySrv.on("connection", (ws) => {
+    dials++;
+    relayConn = ws;
+    ws.on("message", (d: RawData) => gotRelay.push(JSON.parse(d.toString())));
+    ws.send(JSON.stringify({ event: "pusher:connection_established", data: JSON.stringify({ socket_id: "1.2", activity_timeout: 30 }) }));
+  });
+
+  const hub = new SoloistHub(`ws://127.0.0.1:${upPort}`);
+  void hub.run();
+  const [upConn] = (await once(upstream, "connection")) as [WebSocket];
+
+  const cfg = defaultConfig();
+  cfg.relay.url = `ws://127.0.0.1:${relayPort}`;
+  cfg.relay.pusher = true;
+  cfg.relay.channel = "private-soloist";
+  cfg.relay.appKey = "key";
+  cfg.relay.appSecret = "s3cret";
+  const relay = new SoloistRelay(hub, cfg);
+  const running = relay.run();
+  try {
+    await pWait(() => gotRelay.length > 0);
+    const authSig = createHmac("sha256", "s3cret").update("1.2:private-soloist").digest("hex");
+    assert.deepEqual(gotRelay.shift(), { event: "pusher:subscribe", data: { channel: "private-soloist", auth: `key:${authSig}` } }, "signed subscribe using the socket_id from connection_established");
+
+    upConn.send('{"type":"paused"}');
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(gotRelay.length, 0, "nothing published before subscription_succeeded");
+
+    relayConn!.send(JSON.stringify({ event: "pusher_internal:subscription_succeeded", channel: "private-soloist", data: "{}" }));
+    await pWait(() => relay.status.connected);
+    await new Promise((r) => setTimeout(r, 20));
+    upConn.send('{"type":"track_changed","item":{"uri":"x"}}');
+    await pWait(() => gotRelay.length > 0);
+    assert.deepEqual(gotRelay.shift(), { event: "client-track_changed", channel: "private-soloist", data: { type: "track_changed", item: { uri: "x" } } }, "frame wrapped as a client- event on the channel");
+
+    relayConn!.send(JSON.stringify({ event: "pusher:ping" }));
+    await pWait(() => gotRelay.length > 0);
+    assert.deepEqual(gotRelay.shift(), { event: "pusher:pong" }, "answers pusher:ping");
+
+    relayConn!.send(JSON.stringify({ event: "pusher:error", data: JSON.stringify({ code: 4009, message: "The client is not a member of the specified channel." }) }));
+    await pWait(() => relay.status.lastError !== null);
+    assert.equal(relay.status.lastError, "pusher error 4009: The client is not a member of the specified channel.", "pusher:error surfaces as lastError");
+
+    relayConn!.send(JSON.stringify({ event: "client-command", channel: "other", data: { type: "command", command: "skip" } }));
+    relayConn!.send(JSON.stringify({ event: "App\\Events\\Pause", channel: "private-soloist", data: '{"type":"command","command":"pause"}' }));
+    relayConn!.send(JSON.stringify({ event: "client-command", channel: "private-soloist", data: { type: "command", command: "play" } }));
+    await pWait(() => gotUpstream.length >= 2);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(gotUpstream, ['{"type":"command","command":"pause"}', '{"type":"command","command":"play"}'], "channel event data unwrapped upstream; other channels ignored");
+
+    cfg.relay.appSecret = "";
+    relay.apply();
+    await pWait(() => relay.status.lastError === "Private and presence channels need the app key and secret");
+    assert.equal(relay.status.connected, false, "private channel without secret -> not connected");
+    cfg.relay.channel = "";
+    relay.apply();
+    await pWait(() => relay.status.lastError === "Pusher mode needs a channel");
+    assert.equal(relay.status.connected, false, "no channel -> not connected");
+    assert.equal(dials, 1, "misconfigured -> never re-dials");
+  } finally {
+    relay.stop();
+    await running;
+    hub.stop();
+    upstream.close();
+    relaySrv.close();
+  }
+});
+
+
 await test("buildArgv Soloist command line", async () => {
   const base = { soloist: { deviceName: "d", apiKey: "k", dataDir: "/data", extraArgs: [], pipewireDevice: "" }, soloistWs: "127.0.0.1:3678" } as unknown as Config;
   assert.deepEqual(
@@ -1759,8 +1880,8 @@ await test("refreshSinkCache: populates the cache and stamps refreshedAt via an 
 });
 
 
-const dcfg = (snapcast: boolean, outputs: string[], streamName = "Spotify"): Config =>
-  ({ audio: { snapcast, outputs }, streamName }) as unknown as Config;
+const dcfg = (snapcast: boolean, outputs: string[], streamName = "Spotify", externalMode = "off"): Config =>
+  ({ audio: { snapcast, outputs, externalSnapcast: { mode: externalMode, host: "", port: 4953 } }, streamName }) as unknown as Config;
 const monitorListing = [
   "soloist-sink:monitor_FL",
   "  |-> old_sink:playback_FL",
@@ -1783,7 +1904,7 @@ await test("pipewire routing helpers (targets/monitors/delays/tokens/filter-conf
   assert.deepEqual(parseMonitorTargets(""), [], "parseMonitorTargets: empty -> []");
 
   assert.deepEqual(desiredDelays(dcfg(true, ["alsa_x", "alsa_y"])), {}, "desiredDelays: no outputDelays configured -> {}");
-  const withDelay = { audio: { snapcast: true, outputs: ["alsa_x", "alsa_y", "snapcast"], outputDelays: { alsa_x: 250, alsa_y: 0, ghost: 10 } }, streamName: "Spotify" } as unknown as Config;
+  const withDelay = { audio: { snapcast: true, outputs: ["alsa_x", "alsa_y", "snapcast"], outputDelays: { alsa_x: 250, alsa_y: 0, ghost: 10 }, externalSnapcast: { mode: "off" } }, streamName: "Spotify" } as unknown as Config;
   assert.deepEqual(desiredDelays(withDelay), { alsa_x: 250 }, "desiredDelays: only enabled hardware outputs with >0ms; snapcast/absent excluded");
 
   const tokens = buildDelayTokens({ "alsa_output.hw:0": 250, "alsa/weird name!": 100 });
@@ -1827,6 +1948,134 @@ await test("reconcileOutputs link/unlink/missing", async () => {
 });
 
 
+await test("reconcileOutputs links the External Snapcast capture node on its input ports", async () => {
+  const calls: string[] = [];
+  const run: Runner = async (cmd, args) => {
+    calls.push([cmd, ...args].join(" "));
+    if (args[0] === "-i") return "soloist-snapcast-external:input_FL\nsoloist-snapcast-external:input_FR\n";
+    if (args.includes("-l")) return "";
+    return "";
+  };
+  const res = await reconcileOutputs(dcfg(false, [], "Spotify", "push"), { run, retries: 1, intervalMs: 0 });
+  assert.deepEqual(res.linked, ["soloist-snapcast-external"], "external node linked when mode != off");
+  assert.ok(calls.includes("pw-link soloist-sink:monitor_FL soloist-snapcast-external:input_FL"), "FL -> input_FL");
+  assert.ok(calls.includes("pw-link soloist-sink:monitor_FR soloist-snapcast-external:input_FR"), "FR -> input_FR");
+
+  const linked = "soloist-sink:monitor_FL\n  |-> soloist-snapcast-external:input_FL\nsoloist-sink:monitor_FR\n  |-> soloist-snapcast-external:input_FR\n";
+  const calls2: string[] = [];
+  const run2: Runner = async (cmd, args) => { calls2.push([cmd, ...args].join(" ")); return args.includes("-l") ? linked : ""; };
+  const res2 = await reconcileOutputs(dcfg(false, [], "Spotify", "off"), { run: run2, retries: 1, intervalMs: 0 });
+  assert.deepEqual(res2.removed, ["soloist-snapcast-external"], "mode off -> external node unlinked");
+  assert.ok(calls2.includes("pw-link -d soloist-sink:monitor_FL soloist-snapcast-external:input_FL"), "unlinks input_FL");
+});
+
+
+await test("ExternalSnapcast push and pull feed captured PCM over TCP", async () => {
+  const until = async (pred: () => boolean): Promise<void> => {
+    for (let i = 0; i < 400 && !pred(); i++) await new Promise((r) => setTimeout(r, 10));
+  };
+  const fakes: (EventEmitter & { stdout: PassThrough; kill: () => void })[] = [];
+  const spawnFake = () => {
+    const f = Object.assign(new EventEmitter(), { stdout: new PassThrough(), kill: () => {} });
+    fakes.push(f);
+    return f as unknown as ChildProcess;
+  };
+  let relinks = 0;
+
+  // Push: we dial the external server's tcp source.
+  const got: Buffer[] = [];
+  const srv = createTcpServer((sock) => sock.on("data", (d: Buffer) => got.push(d)));
+  await new Promise<void>((r) => srv.listen(0, "127.0.0.1", () => r()));
+  const cfg = defaultConfig();
+  cfg.audio.externalSnapcast = { mode: "push", host: "127.0.0.1", port: (srv.address() as { port: number }).port };
+  const ext = new ExternalSnapcast(cfg, () => relinks++, spawnFake);
+  try {
+    ext.apply();
+    assert.equal(fakes.length, 1, "pw-record spawned");
+    assert.equal(relinks, 1, "relink requested for the new capture node");
+    await until(() => ext.status.connected);
+    assert.equal(ext.status.connected, true, "push connects");
+    fakes[0].stdout.write(Buffer.from([1, 2, 3, 4]));
+    await until(() => got.length > 0);
+    assert.deepEqual(Buffer.concat(got), Buffer.from([1, 2, 3, 4]), "PCM pushed verbatim");
+
+    ext.apply();
+    assert.equal(fakes.length, 1, "unchanged config is a no-op");
+
+    // Pull: the external server dials us.
+    const probe = createTcpServer();
+    await new Promise<void>((r) => probe.listen(0, "127.0.0.1", () => r()));
+    const pullPort = (probe.address() as { port: number }).port;
+    await new Promise<void>((r) => probe.close(() => r()));
+    cfg.audio.externalSnapcast = { mode: "pull", host: "", port: pullPort };
+    ext.apply();
+    assert.equal(fakes.length, 2, "mode change respawns capture");
+    assert.equal(ext.status.connected, false, "pull has no outbound connection");
+    let client: import("node:net").Socket | null = null;
+    for (let i = 0; i < 100 && !client; i++) {
+      client = await new Promise((res) => {
+        const c = createTcpConnection({ host: "127.0.0.1", port: pullPort });
+        c.once("connect", () => res(c));
+        c.once("error", () => setTimeout(() => res(null), 10));
+      });
+    }
+    const pulled: Buffer[] = [];
+    client!.on("data", (d: Buffer) => pulled.push(d));
+    await until(() => ext.status.clients === 1);
+    fakes[1].stdout.write(Buffer.from([9, 8]));
+    await until(() => pulled.length > 0);
+    assert.deepEqual(Buffer.concat(pulled), Buffer.from([9, 8]), "PCM served to the pulling server");
+    client!.destroy();
+
+    cfg.audio.externalSnapcast = { mode: "push", host: "", port: 4953 };
+    ext.apply();
+    assert.equal(ext.status.lastError, "Push mode needs a host", "push without host explains why");
+    assert.equal(fakes.length, 2, "push without host never spawns capture");
+  } finally {
+    ext.stop();
+    srv.close();
+  }
+});
+
+
+
+await test("ExternalSnapcast restarts a failed capture and retries a busy pull port", async () => {
+  const until = async (pred: () => boolean | Promise<boolean>): Promise<void> => {
+    for (let i = 0; i < 500 && !(await pred()); i++) await new Promise((r) => setTimeout(r, 10));
+  };
+  let spawns = 0;
+  const failingSpawn = () => {
+    spawns++;
+    const f = Object.assign(new EventEmitter(), { stdout: new PassThrough(), kill: () => {} });
+    setImmediate(() => {
+      f.emit("error", new Error("spawn pw-record ENOENT"));
+      f.emit("close", -2);
+    });
+    return f as unknown as ChildProcess;
+  };
+  const blocker = createTcpServer();
+  await new Promise<void>((r) => blocker.listen(0, "0.0.0.0", () => r()));
+  const port = (blocker.address() as { port: number }).port;
+  const cfg = defaultConfig();
+  cfg.audio.externalSnapcast = { mode: "pull", host: "", port };
+  const ext = new ExternalSnapcast(cfg, () => {}, failingSpawn);
+  const canConnect = () => new Promise<boolean>((resolve) => {
+    const c = createTcpConnection({ host: "127.0.0.1", port }, () => { c.destroy(); resolve(true); });
+    c.on("error", () => resolve(false));
+  });
+  try {
+    ext.apply();
+    await until(() => !ext.status.capturing);
+    assert.equal(ext.status.capturing, false, "a failed spawn is not reported as capturing");
+    await until(() => spawns >= 2);
+    assert.ok(spawns >= 2, "capture respawns after a failed spawn (error + close, no exit)");
+    await new Promise<void>((r) => blocker.close(() => r()));
+    await until(canConnect);
+    assert.equal(await canConnect(), true, "pull listener retries once the port frees up");
+  } finally {
+    ext.stop();
+  }
+});
 await test("reconcileOutputs delay lifecycle + no-delay parity", async () => {
   const calls: string[] = [];
   const spawnedCmds: string[] = [];
@@ -1841,7 +2090,7 @@ await test("reconcileOutputs delay lifecycle + no-delay parity", async () => {
     if (args.includes("-l")) return "";
     return "";
   };
-  const delayedCfg = { audio: { snapcast: false, outputs: ["alsa_x"], outputDelays: { alsa_x: 250 } }, streamName: "Spotify" } as unknown as Config;
+  const delayedCfg = { audio: { snapcast: false, outputs: ["alsa_x"], outputDelays: { alsa_x: 250 }, externalSnapcast: { mode: "off" } }, streamName: "Spotify" } as unknown as Config;
   const res = await reconcileOutputs(delayedCfg, { run, spawn: spawner, retries: 1, intervalMs: 0 });
   assert.deepEqual(res.linked, ["alsa_x"], "reconcile+delay: reported linked under the real sink name");
   assert.equal(spawnedCmds.length, 1, "reconcile+delay: one filter-chain child spawned, not one per output");
@@ -1853,7 +2102,7 @@ await test("reconcileOutputs delay lifecycle + no-delay parity", async () => {
   await reconcileOutputs(delayedCfg, { run, spawn: spawner, retries: 1, intervalMs: 0 });
   assert.equal(spawnedCmds.length, 1, "reconcile+delay: same delay map does not respawn the child");
 
-  const undelayedCfg = { audio: { snapcast: false, outputs: ["alsa_x"], outputDelays: { alsa_x: 0 } }, streamName: "Spotify" } as unknown as Config;
+  const undelayedCfg = { audio: { snapcast: false, outputs: ["alsa_x"], outputDelays: { alsa_x: 0 }, externalSnapcast: { mode: "off" } }, streamName: "Spotify" } as unknown as Config;
   const res3 = await reconcileOutputs(undelayedCfg, { run, spawn: spawner, retries: 1, intervalMs: 0 });
   assert.equal(killed, 1, "reconcile: delay dropped to 0 kills the running filter-chain child");
   assert.equal(spawnedCmds.length, 1, "reconcile: dropping to 0 does not spawn a new child");
@@ -2019,7 +2268,7 @@ await test("first-run setup gating", async () => {
   let r = fakeRes();
   assert.equal(call(r, setupReq("GET", "/setup"), scfg), true, "GET /setup handled in setup mode");
   assert.equal(r.statusCode, 200, "GET /setup served in setup mode");
-  assert.match(r.body, /Soloist Proxy — Setup/, "setup page shell served (Vue mounts the form client-side)");
+  assert.match(r.body, /Encore — Setup/, "setup page shell served (Vue mounts the form client-side)");
 
   r = fakeRes();
   call(r, setupReq("GET", "/"), scfg);

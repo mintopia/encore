@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from "node:url";
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 // Node backend (proxy.ts) default listen — see DEFAULT_PROXY_LISTEN in src/config.ts.
-const BACKEND = "http://127.0.0.1:8687";
+const BACKEND = `http://127.0.0.1:${process.env.ENCORE_PORT || 80}`;
 
 // Multi-page: Landing SPA + standalone login/setup entries. Emits hashed assets to
 // dist/web, which web.ts serves (ADR-0014); the build then copies the vanilla Lyrics

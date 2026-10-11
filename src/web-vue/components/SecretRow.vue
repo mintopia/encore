@@ -10,6 +10,7 @@ const props = defineProps<{
   isSet: boolean;
   optional?: boolean;
   revealable?: boolean;
+  noClear?: boolean;
   hint?: string;
 }>();
 
@@ -51,7 +52,7 @@ async function view() {
     <label class="flabel" :for="id">{{ label }}</label>
     <div class="field row box">
       <template v-if="typeof model === 'string'">
-        <input :id="id" class="bare" :class="{ mono: show }" :type="show ? 'text' : 'password'" placeholder="New value" v-model="model" />
+        <input :id="id" class="bare" :class="{ mono: show }" :type="show ? 'text' : 'password'" :placeholder="noClear ? 'New value' : 'New value, or leave empty to clear'" v-model="model" />
         <button type="button" class="iconbtn" :title="show ? 'Hide' : 'Show'" @click="show = !show"><EyeIcon :off="show" /></button>
         <button type="button" class="linkbtn" @click="cancel">Cancel</button>
       </template>

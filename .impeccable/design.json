@@ -1,0 +1,611 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T01:18:51Z",
+  "title": "Design System: Encore",
+  "extensions": {
+    "colorMeta": {
+      "reef-teal": {
+        "role": "primary",
+        "displayName": "Reef Teal",
+        "canonical": "#0d9488",
+        "tonalRamp": [
+          "#064641",
+          "#0b7a70",
+          "#0fad9f",
+          "#14e1cf",
+          "#43efdf",
+          "#7cf3e9",
+          "#b4f8f2",
+          "#e8fdfb"
+        ]
+      },
+      "deep-reef": {
+        "role": "primary",
+        "displayName": "Deep Reef",
+        "canonical": "#0f766e",
+        "tonalRamp": [
+          "#09443f",
+          "#0f766e",
+          "#15a79c",
+          "#1cd9ca",
+          "#4ae8dc",
+          "#80efe6",
+          "#b7f6f1",
+          "#e8fcfb"
+        ]
+      },
+      "sea-glass": {
+        "role": "primary",
+        "displayName": "Sea Glass",
+        "canonical": "#e2f5f1",
+        "tonalRamp": [
+          "#143931",
+          "#226355",
+          "#308c79",
+          "#3fb69d",
+          "#67cbb6",
+          "#95dacc",
+          "#c2eae2",
+          "#ecf8f6"
+        ]
+      },
+      "lagoon-teal": {
+        "role": "primary",
+        "displayName": "Lagoon Teal (dark)",
+        "canonical": "#2dd4bf",
+        "tonalRamp": [
+          "#0d3f39",
+          "#176e63",
+          "#209d8d",
+          "#2acbb7",
+          "#56dccb",
+          "#88e7db",
+          "#bbf1ea",
+          "#eafbf9"
+        ]
+      },
+      "mint-glow": {
+        "role": "primary",
+        "displayName": "Mint Glow (dark)",
+        "canonical": "#5eead4",
+        "tonalRamp": [
+          "#09443a",
+          "#0f7565",
+          "#16a790",
+          "#1cd9bb",
+          "#4be7cf",
+          "#81efdd",
+          "#b7f6ec",
+          "#e8fcf9"
+        ]
+      },
+      "warm-paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#edece8",
+        "tonalRamp": [
+          "#2b2922",
+          "#4a473a",
+          "#6a6553",
+          "#89836b",
+          "#a5a08d",
+          "#c0bdaf",
+          "#dbd9d1",
+          "#f4f3f1"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d6d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "soft-paper": {
+        "role": "neutral",
+        "displayName": "Soft Paper",
+        "canonical": "#fbfbf9",
+        "tonalRamp": [
+          "#2e2e1f",
+          "#505035",
+          "#71714b",
+          "#939362",
+          "#adad85",
+          "#c6c6a9",
+          "#dedece",
+          "#f5f5f0"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e9e9e5",
+        "tonalRamp": [
+          "#292923",
+          "#48483d",
+          "#666656",
+          "#858570",
+          "#a1a191",
+          "#bebeb2",
+          "#dadad3",
+          "#f3f3f1"
+        ]
+      },
+      "field-stroke": {
+        "role": "neutral",
+        "displayName": "Field Stroke",
+        "canonical": "#dcdcd7",
+        "tonalRamp": [
+          "#292924",
+          "#47473e",
+          "#656558",
+          "#838372",
+          "#a0a092",
+          "#bcbcb3",
+          "#d9d9d3",
+          "#f3f3f1"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1b1b1a",
+        "tonalRamp": [
+          "#272726",
+          "#444441",
+          "#60605d",
+          "#7d7d78",
+          "#9b9b97",
+          "#b9b9b6",
+          "#d7d7d5",
+          "#f2f2f2"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#6d6d68",
+        "tonalRamp": [
+          "#272725",
+          "#444441",
+          "#61615c",
+          "#7d7d78",
+          "#9b9b97",
+          "#b9b9b6",
+          "#d7d7d5",
+          "#f3f3f2"
+        ]
+      },
+      "pencil": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#78776f",
+        "tonalRamp": [
+          "#282725",
+          "#454440",
+          "#62615b",
+          "#7f7e76",
+          "#9d9c95",
+          "#babab5",
+          "#d8d7d5",
+          "#f3f3f2"
+        ]
+      },
+      "night-slate": {
+        "role": "neutral",
+        "displayName": "Night Slate (dark)",
+        "canonical": "#0b0f16",
+        "tonalRamp": [
+          "#192333",
+          "#2c3c58",
+          "#3f567e",
+          "#526fa3",
+          "#7790bb",
+          "#a0b1cf",
+          "#c9d2e4",
+          "#eef1f6"
+        ]
+      },
+      "deep-slate": {
+        "role": "neutral",
+        "displayName": "Deep Slate (dark)",
+        "canonical": "#10161f",
+        "tonalRamp": [
+          "#1a2432",
+          "#2d3e57",
+          "#40587c",
+          "#5373a1",
+          "#7892ba",
+          "#a1b3ce",
+          "#c9d4e3",
+          "#eef1f6"
+        ]
+      },
+      "slate-card": {
+        "role": "neutral",
+        "displayName": "Slate Card (dark)",
+        "canonical": "#161e2b",
+        "tonalRamp": [
+          "#1a2333",
+          "#2d3d58",
+          "#40577d",
+          "#5371a2",
+          "#7891ba",
+          "#a1b2cf",
+          "#c9d3e3",
+          "#eef1f6"
+        ]
+      },
+      "slate-hairline": {
+        "role": "neutral",
+        "displayName": "Slate Hairline (dark)",
+        "canonical": "#273241",
+        "tonalRamp": [
+          "#1d2530",
+          "#324053",
+          "#475b76",
+          "#5c7699",
+          "#8095b2",
+          "#a6b5c9",
+          "#ccd5e0",
+          "#eff2f5"
+        ]
+      },
+      "slate-stroke": {
+        "role": "neutral",
+        "displayName": "Slate Stroke (dark)",
+        "canonical": "#37455a",
+        "tonalRamp": [
+          "#1d242f",
+          "#323f52",
+          "#485a75",
+          "#5d7498",
+          "#8094b2",
+          "#a6b4c9",
+          "#ccd4e0",
+          "#eff2f5"
+        ]
+      },
+      "frost": {
+        "role": "neutral",
+        "displayName": "Frost (dark)",
+        "canonical": "#eef2f8",
+        "tonalRamp": [
+          "#162336",
+          "#273d5e",
+          "#375686",
+          "#4770ad",
+          "#6e90c4",
+          "#9ab2d5",
+          "#c5d3e7",
+          "#edf1f8"
+        ]
+      },
+      "mist": {
+        "role": "neutral",
+        "displayName": "Mist (dark)",
+        "canonical": "#a8b6c8",
+        "tonalRamp": [
+          "#1e252f",
+          "#334051",
+          "#495c74",
+          "#5f7796",
+          "#8296b0",
+          "#a8b6c8",
+          "#cdd5df",
+          "#eff2f5"
+        ]
+      },
+      "haze": {
+        "role": "neutral",
+        "displayName": "Haze (dark)",
+        "canonical": "#8695a8",
+        "tonalRamp": [
+          "#20262d",
+          "#37414d",
+          "#4f5d6e",
+          "#66788e",
+          "#8897aa",
+          "#acb6c3",
+          "#d0d5dd",
+          "#f0f2f4"
+        ]
+      },
+      "ok-green": {
+        "role": "status",
+        "displayName": "OK Green",
+        "canonical": "#16a34a",
+        "tonalRamp": [
+          "#09431f",
+          "#107535",
+          "#16a64b",
+          "#1dd862",
+          "#4be785",
+          "#81eea9",
+          "#b7f5ce",
+          "#e9fcf0"
+        ]
+      },
+      "bad-red": {
+        "role": "status",
+        "displayName": "Bad Red",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "#420b0b",
+          "#721212",
+          "#a21a1a",
+          "#d32222",
+          "#e34f4f",
+          "#eb8484",
+          "#f4b9b9",
+          "#fbe9e9"
+        ]
+      },
+      "warn-amber": {
+        "role": "status",
+        "displayName": "Warn Amber",
+        "canonical": "#b45309",
+        "tonalRamp": [
+          "#492204",
+          "#7e3a06",
+          "#b45309",
+          "#e96c0c",
+          "#f58d3d",
+          "#f8af77",
+          "#fbd1b1",
+          "#fef1e7"
+        ]
+      },
+      "ok-green-dark": {
+        "role": "status",
+        "displayName": "OK Green (dark)",
+        "canonical": "#4ade80",
+        "tonalRamp": [
+          "#0c411f",
+          "#147036",
+          "#1da04d",
+          "#26cf64",
+          "#52e086",
+          "#86e9aa",
+          "#baf2cf",
+          "#e9fbf0"
+        ]
+      },
+      "bad-red-dark": {
+        "role": "status",
+        "displayName": "Bad Red (dark)",
+        "canonical": "#fb7185",
+        "tonalRamp": [
+          "#4a020d",
+          "#810416",
+          "#b8051f",
+          "#ee0728",
+          "#f93955",
+          "#fb7488",
+          "#fdb0bb",
+          "#fee6ea"
+        ]
+      },
+      "warn-amber-dark": {
+        "role": "status",
+        "displayName": "Warn Amber (dark)",
+        "canonical": "#fbbf24",
+        "tonalRamp": [
+          "#4b3701",
+          "#825f02",
+          "#b98703",
+          "#f0af04",
+          "#fbc437",
+          "#fcd673",
+          "#fee8af",
+          "#fff8e6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Hero title",
+        "purpose": "Now Playing track title; marquee on overflow."
+      },
+      "display-docs": {
+        "displayName": "Docs hero",
+        "purpose": "Docs home headline only."
+      },
+      "headline": {
+        "displayName": "Page title",
+        "purpose": "Debug and auth cards."
+      },
+      "title": {
+        "displayName": "Section / card title",
+        "purpose": "SectionCard and every detail section; docs step and feature titles."
+      },
+      "body": {
+        "displayName": "Body / UI",
+        "purpose": "Console UI and docs lists."
+      },
+      "label": {
+        "displayName": "Section label",
+        "purpose": "Uppercase field labels and docs sidebar groups."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px rgba(20,20,20,.05)",
+        "purpose": "Cards at rest (light). Dark: 0 1px 2px rgba(0,0,0,.5)."
+      },
+      {
+        "name": "floating",
+        "value": "0 12px 40px rgba(30,30,40,.10)",
+        "purpose": "Menus, auth cards, docs screenshots (light). Dark: 0 16px 46px rgba(0,0,0,.55)."
+      },
+      {
+        "name": "glass-hairline",
+        "value": "inset 0 1px 0 rgba(255,255,255,.12)",
+        "purpose": "Top hairline on dark glass cards."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "180ms ease",
+        "purpose": "Hover and colour transitions on buttons, links and nav."
+      },
+      {
+        "name": "spinner",
+        "value": "0.7s linear infinite (1.6s reduced motion)",
+        "purpose": "LoadingState ring."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "console-mobile",
+        "value": "860px"
+      },
+      {
+        "name": "docs-hero-stack",
+        "value": "960px"
+      },
+      {
+        "name": "docs-columns",
+        "value": "760px"
+      },
+      {
+        "name": "phone",
+        "value": "480px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default action: quiet card-coloured button, teal on hover.",
+      "html": "<button class=\"ds-btn\">Refresh sinks</button>",
+      "css": ".ds-btn{font:600 13px 'Instrument Sans',system-ui,sans-serif;padding:9px 14px;border-radius:10px;background:var(--card, #ffffff);color:var(--txt, #1b1b1a);border:1px solid var(--line2, #dcdcd7);cursor:pointer;transition:border-color .18s,color .18s}.ds-btn:hover{border-color:var(--ind, #0d9488);color:var(--link, #0f766e)}.ds-btn:focus-visible{outline:2px solid var(--ind, #0d9488);outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action in a view.",
+      "html": "<button class=\"ds-btn-pri\">Save changes</button>",
+      "css": ".ds-btn-pri{font:600 13px 'Instrument Sans',system-ui,sans-serif;padding:9px 16px;border-radius:10px;background:var(--ind, #0d9488);color:#fff;border:1px solid var(--ind, #0d9488);cursor:pointer;transition:background .18s}.ds-btn-pri:hover{background:var(--ind-h, #0f766e);border-color:var(--ind-h, #0f766e)}.ds-btn-pri:focus-visible{outline:2px solid var(--ind, #0d9488);outline-offset:2px}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Text input with label in the section-label style.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-flabel\">Device name</span><input class=\"ds-input\" value=\"Kitchen\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;font-family:'Instrument Sans',system-ui,sans-serif}.ds-flabel{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint, #78776f)}.ds-input{font:400 14px 'Instrument Sans',system-ui,sans-serif;padding:9px 12px;border-radius:10px;background:var(--sub, #fbfbf9);color:var(--txt, #1b1b1a);border:1px solid var(--line2, #dcdcd7);caret-color:var(--ind, #0d9488)}.ds-input:focus-visible{outline:2px solid var(--ind, #0d9488);outline-offset:1px}"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill-set",
+      "description": "Set/unset and status indicator with a leading dot.",
+      "html": "<span class=\"ds-pill\"><i></i>Set</span>",
+      "css": ".ds-pill{display:inline-flex;align-items:center;gap:6px;font:600 12px 'Instrument Sans',system-ui,sans-serif;padding:3px 10px;border-radius:20px;background:var(--ind-s, #e2f5f1);color:var(--link, #0f766e)}.ds-pill i{width:8px;height:8px;border-radius:50%;background:currentColor}"
+    },
+    {
+      "name": "Settings Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Master-detail sidebar item; active uses the teal tint.",
+      "html": "<nav class=\"ds-navi\"><a class=\"act\">Soloist</a><a>Audio Outputs</a><a>Snapcast</a></nav>",
+      "css": ".ds-navi{display:grid;gap:2px;width:200px}.ds-navi a{font:600 13px 'Instrument Sans',system-ui,sans-serif;color:var(--dim, #6d6d68);padding:8px 12px;border-radius:10px;cursor:pointer;text-decoration:none}.ds-navi a:hover{color:var(--txt, #1b1b1a)}.ds-navi a.act{background:var(--ind-s, #e2f5f1);color:var(--link, #0f766e)}"
+    },
+    {
+      "name": "Section Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "SectionCard: the one card-title primitive for detail panes.",
+      "html": "<section class=\"ds-card\"><h3>Snapcast</h3><p>Multi-room audio server (Docker). Changes apply after a Snapcast restart.</p></section>",
+      "css": ".ds-card{background:var(--card, #ffffff);border-radius:16px;padding:22px;box-shadow:0 1px 2px rgba(20,20,20,.05)}.ds-card h3{margin:0;font:700 16px/1.3 'Space Grotesk',system-ui,sans-serif;letter-spacing:-.01em;color:var(--txt, #1b1b1a)}.ds-card p{margin:6px 0 0;font:400 14px/1.5 'Instrument Sans',system-ui,sans-serif;color:var(--dim, #6d6d68)}"
+    },
+    {
+      "name": "Toggle",
+      "kind": "custom",
+      "description": "38×22 switch; on is teal.",
+      "html": "<button class=\"ds-sw on\" role=\"switch\" aria-checked=\"true\" aria-label=\"Autoplay on login\"><i></i></button>",
+      "css": ".ds-sw{position:relative;width:38px;height:22px;border-radius:11px;border:0;background:#d7d7d1;cursor:pointer;transition:background .18s}.ds-sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s}.ds-sw.on{background:var(--ind, #0d9488)}.ds-sw.on i{transform:translateX(16px)}.ds-sw:focus-visible{outline:2px solid var(--ind, #0d9488);outline-offset:2px}"
+    },
+    {
+      "name": "Docs Feature Row",
+      "kind": "custom",
+      "description": "Docs home feature list row: teal icon tile, title, description.",
+      "html": "<a class=\"ds-feat\"><span class=\"ds-feat-ic\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 256 256\" fill=\"currentColor\"><path d=\"M215.38,14.54a12,12,0,0,0-10.29-2.18l-128,32A12,12,0,0,0,68,56V159.35A40,40,0,1,0,92,196V65.37l104-26v88A40,40,0,1,0,220,164V24A12,12,0,0,0,215.38,14.54Z\"/></svg></span><span><b>Multi-room with Snapcast</b><span>A built-in Snapcast server streams synced audio to every room.</span></span></a>",
+      "css": ".ds-feat{display:flex;gap:16px;padding:22px 0;border-bottom:1px solid var(--line, #e9e9e5);text-decoration:none;color:inherit;cursor:pointer;max-width:460px}.ds-feat-ic{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--ind-s, #e2f5f1);color:var(--link, #0f766e)}.ds-feat b{display:block;font:700 16px 'Space Grotesk',system-ui,sans-serif;letter-spacing:-.01em;color:var(--txt, #1b1b1a);transition:color .18s}.ds-feat>span:last-child>span{display:block;margin-top:4px;font:400 14px/1.6 'Instrument Sans',system-ui,sans-serif;color:var(--dim, #6d6d68)}.ds-feat:hover b{color:var(--link, #0f766e)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Hi-Fi",
+    "overview": "Encore looks like a well-made piece of hi-fi: calm, precise and legible, with the brand in the details rather than the decoration. It's built to be set up once and left alone, so nothing shouts. Teal is the only accent, surfaces are quiet, and the one bright, elevated surface is the music itself (the Now Playing hero). The system covers two surfaces that share one set of tokens: - **The console** (`src/web-vue/`): an **Operate**-mode operator console with Now Playing, Lyrics, Settings (master-detail), Debug, Login/Setup and the transparent Lyrics Overlay. Scanability, consistency and native expectations outrank expression. **This file is the visual source of truth for `src/web-vue/`; build to it.** The SPA is a multi-page app (vue-router, history mode), and the shipped implementation is authoritative for structure. The static mockups in `docs/design/mockups/` predate the master-detail redesign and are historical reference for tokens and mood only. - **The docs site** (`site/`, VitePress, <https://pimusic.stream/>): **Read** mode for the guides, with a **Persuade** home page. It lifts the console's tokens verbatim and maps them onto VitePress, so the docs and the app read as one product. There are **two committed themes**: - **Light, \"Clean & Light\":** a warm off-white ground, teal accent, rounded cards and airy spacing. - **Dark, \"Cold Glass\":** a cold slate/ink ground under cyan/teal ambient blooms. Data cards are translucent glass that **lift** off the ground, and the now-playing hero is a deep cold-ocean panel. Deliberately cold (blue-cold), never warm charcoal.",
+    "keyCharacteristics": [
+      "One accent (teal), used for action, selection and state, never decoration.",
+      "Two committed themes that share every token name.",
+      "Depth is lifted: soft shadows in light, raised glass in dark.",
+      "Space Grotesk for display and numerics, Instrument Sans for everything else.",
+      "Phosphor fill icons throughout, with the bold music-notes glyph as the brand mark."
+    ],
+    "rules": [
+      {
+        "name": "The Text-Teal Rule",
+        "body": "Teal used as **text** (links, active nav, pills) uses `--link`; teal as a **fill** uses `--ind`. Teal-on-tint text always uses `--link` for AA.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cold Night Rule",
+        "body": "The dark theme is blue-cold slate. Never warm charcoal, and never a hardcoded light hex in dark.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Ramp Rule",
+        "body": "One ramp, applied everywhere. Don't introduce a section heading at a page-title size; the master-detail makes any drift obvious side by side.",
+        "section": "typography"
+      },
+      {
+        "name": "The Single Card Title Rule",
+        "body": "16px is the only card-title size. Every detail section matches.",
+        "section": "typography"
+      },
+      {
+        "name": "The Declare-Once Rule",
+        "body": "Declare elevation once: never a 1px border under a wide soft shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Glass-Needs-Ground Rule",
+        "body": "Glass never floats over a flat fill. Where there's glass, there are blooms behind it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep both themes committed. The default is light, the user opts into dark, and the choice persists in `localStorage['soloist-theme']`. Dark is a full palette and glass treatment, but it reuses every token *name*, so components stay theme-agnostic.",
+      "**Do** route every new config surface through `SectionCard` with the 16px title.",
+      "**Do** theme browser surfaces from the palette: `::selection`, the caret, `accent-color`, focus rings and custom scrollbars all use `--ind`/`--line2`, never browser defaults.",
+      "**Do** copy token values verbatim from `src/web-vue/styles/tokens.css` when styling a new surface, including the docs site.",
+      "**Do** use real product screenshots for imagery."
+    ],
+    "donts": [
+      "**Don't** render a secret value. Show a set/unset pill or a masked field with a Replace action.",
+      "**Don't** introduce a bespoke `<h1>` or a second card-title size.",
+      "**Don't** put a 1px border under a wide soft shadow.",
+      "**Don't** float glass over a flat fill.",
+      "**Don't** use Inter, Roboto or Arial, emoji or Unicode glyphs as icons, or hand-authored inline SVGs.",
+      "**Don't** use warm charcoal or hardcoded light hexes in the dark theme.",
+      "**Don't** use teal as decoration. It marks action, selection and state.",
+      "**Don't** use gradient text, kicker or eyebrow labels above headings, or grids of identical icon cards."
+    ]
+  }
+}

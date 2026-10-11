@@ -15,3 +15,6 @@ dist/
 .idea/
 
 .scratch/
+
+# Docs site
+site/.vitepress/cache/

@@ -16,6 +16,9 @@ export const PLAYBACK_PORTS = ["playback_FL", "playback_FR"] as const;
 // Reserved node.name for the synthetic Snapcast entry in /api/pipewire-sinks;
 // real PipeWire nodes never use it, so it maps unambiguously to audio.snapcast.
 export const SNAPCAST_KEY = "snapcast";
+// The External Snapcast feeder's pw-record capture node; ports input_FL/FR.
+export const EXTERNAL_SNAPCAST_NODE = "soloist-snapcast-external";
+export const CAPTURE_PORTS = ["input_FL", "input_FR"] as const;
 
 // Per-output playback delay (calibration knob, ADR-0013): a filter-chain "delay"
 // node inserted between soloist-sink:monitor and a hardware sink. Its capture side
@@ -77,9 +80,10 @@ export function parseSinks(pwDumpJson: string, exclude: string[] = []): PwSink[]
 export function desiredTargets(cfg: Config): string[] {
   const targets: string[] = [];
   if (cfg.audio.snapcast) targets.push(cfg.streamName);
+  if (cfg.audio.externalSnapcast.mode !== "off") targets.push(EXTERNAL_SNAPCAST_NODE);
   for (const name of cfg.audio.outputs) {
     const t = name.trim();
-    if (t && t !== SNAPCAST_KEY && t !== SINK_NODE) targets.push(t);
+    if (t && t !== SNAPCAST_KEY && t !== SINK_NODE && t !== EXTERNAL_SNAPCAST_NODE) targets.push(t);
   }
   return [...new Set(targets)];
 }
@@ -206,8 +210,12 @@ async function waitForPort(port: string, run: Runner, retries: number, intervalM
   return false;
 }
 
+function inputPorts(node: string): readonly string[] {
+  return node === EXTERNAL_SNAPCAST_NODE ? CAPTURE_PORTS : PLAYBACK_PORTS;
+}
+
 async function waitForNode(node: string, run: Runner, retries: number, intervalMs: number): Promise<boolean> {
-  return waitForPort(`${node}:${PLAYBACK_PORTS[0]}`, run, retries, intervalMs);
+  return waitForPort(`${node}:${inputPorts(node)[0]}`, run, retries, intervalMs);
 }
 
 // Failures are ignored: linking an already-linked or unlinking an absent port exits non-zero.
@@ -226,7 +234,7 @@ async function linkPorts(
 }
 
 async function linkPair(node: string, run: Runner, remove = false): Promise<void> {
-  await linkPorts(SINK_NODE, MONITOR_PORTS, node, PLAYBACK_PORTS, run, remove);
+  await linkPorts(SINK_NODE, MONITOR_PORTS, node, inputPorts(node), run, remove);
 }
 
 // ponytail: single-slot chain serializing reconciles. Boot and config-save both

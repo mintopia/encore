@@ -5,7 +5,7 @@ import { parse as parseYaml, parseDocument, Document } from "yaml";
 import { safeStrEqual } from "./util.js";
 
 export const DEFAULT_CONFIG_PATH = "./config.yaml";
-export const DEFAULT_PROXY_LISTEN = "0.0.0.0:8687";
+export const DEFAULT_PROXY_LISTEN = "0.0.0.0:80";
 export const DEFAULT_SOLOIST_WS = "127.0.0.1:3678";
 export const DEFAULT_STREAM_NAME = "Spotify";
 export const DEFAULT_DATA_DIR = "./.soloist-data";
@@ -74,12 +74,28 @@ export interface WebConfig {
 export interface RelayConfig {
   url: string;           // ws://|wss:// Relay Server; empty = off
   authorization: string; // verbatim Authorization header on the outbound upgrade; empty = none
+  pusher: boolean;       // wrap/unwrap frames in the Pusher protocol envelope
+  channel: string;       // Pusher channel to subscribe and publish on; empty = none
+  appKey: string;        // Pusher app key; signs private-/presence- subscriptions
+  appSecret: string;     // Pusher app secret; signs private-/presence- subscriptions
+}
+
+export const EXTERNAL_SNAPCAST_MODES = ["off", "push", "pull"] as const;
+export const DEFAULT_EXTERNAL_SNAPCAST_PORT = 4953;
+
+// push: we dial host:port (the external snapserver's tcp source in server mode).
+// pull: we listen on port and the external snapserver dials us (tcp source, mode=client).
+export interface ExternalSnapcastConfig {
+  mode: (typeof EXTERNAL_SNAPCAST_MODES)[number];
+  host: string;
+  port: number;
 }
 
 export interface AudioConfig {
   outputs: string[];
   snapcast: boolean;
   outputDelays: Record<string, number>; // node.name -> ms, hardware sinks only; 0/absent = none
+  externalSnapcast: ExternalSnapcastConfig;
 }
 
 export const OVERLAY_MOTIONS = ["slide", "crossfade", "pop", "instant"] as const;
@@ -239,6 +255,10 @@ export const APPLY_STRATEGY = {
   relay: {
     url: "callback",
     authorization: "callback",
+    pusher: "callback",
+    channel: "callback",
+    appKey: "callback",
+    appSecret: "callback",
   } satisfies Record<keyof RelayConfig, ApplyStrategy>,
   web: {
     username: "live",
@@ -249,6 +269,7 @@ export const APPLY_STRATEGY = {
     outputs: "callback",
     snapcast: "callback",
     outputDelays: "callback",
+    externalSnapcast: "callback",
   } satisfies Record<keyof AudioConfig, ApplyStrategy>,
   // Every overlay field is callback: a save broadcasts overlay_config so open overlays
   // restyle without a reload (new page loads read the values live). Spelled out rather
@@ -357,6 +378,10 @@ function parseConfig(raw: unknown): Config {
     relay: {
       url: String(relay.url ?? "").trim(),
       authorization: String(relay.authorization ?? ""),
+      pusher: coerceBool(relay.pusher, false),
+      channel: String(relay.channel ?? "").trim(),
+      appKey: String(relay.app_key ?? "").trim(),
+      appSecret: String(relay.app_secret ?? ""),
     },
     web: {
       username: String(web.username ?? "").trim(),
@@ -367,8 +392,19 @@ function parseConfig(raw: unknown): Config {
       outputs: outputsRaw.map((o: unknown) => String(o)),
       snapcast: coerceBool(audio.snapcast, true),
       outputDelays,
+      externalSnapcast: parseExternalSnapcast(audio.external_snapcast ?? {}),
     },
     overlay: parseOverlay(overlay),
+  };
+}
+
+function parseExternalSnapcast(raw: Record<string, unknown>): ExternalSnapcastConfig {
+  const mode = String(raw.mode ?? "off").trim();
+  const port = coerceInt(raw.port, DEFAULT_EXTERNAL_SNAPCAST_PORT);
+  return {
+    mode: (EXTERNAL_SNAPCAST_MODES as readonly string[]).includes(mode) ? (mode as ExternalSnapcastConfig["mode"]) : "off",
+    host: String(raw.host ?? "").trim(),
+    port: port >= 1 && port <= 65535 ? port : DEFAULT_EXTERNAL_SNAPCAST_PORT,
   };
 }
 
@@ -430,6 +466,10 @@ function configToRaw(c: Config): Record<string, unknown> {
     relay: {
       url: c.relay.url,
       authorization: c.relay.authorization,
+      pusher: c.relay.pusher,
+      channel: c.relay.channel,
+      app_key: c.relay.appKey,
+      app_secret: c.relay.appSecret,
     },
     web: {
       username: c.web.username,
@@ -440,6 +480,7 @@ function configToRaw(c: Config): Record<string, unknown> {
       outputs: c.audio.outputs,
       snapcast: c.audio.snapcast,
       output_delays: c.audio.outputDelays,
+      external_snapcast: { ...c.audio.externalSnapcast },
     },
     overlay: overlayToRaw(c.overlay),
   };
@@ -494,9 +535,14 @@ export const SECRETS: { section: string; key: string; label: string }[] = [
   { section: "proxy", key: "readonlyToken", label: "readonlyToken" },
   { section: "webhooks", key: "secret", label: "webhooksSecret" },
   { section: "relay", key: "authorization", label: "relayAuthorization" },
+  { section: "relay", key: "appSecret", label: "relayAppSecret" },
   { section: "web", key: "password", label: "webPassword" },
   { section: "web", key: "sessionSecret", label: "sessionSecret" },
 ];
+
+// Secrets an empty PUT string must not clear: an empty web password reopens the
+// unauthenticated Setup Page, and the session secret / auth token are regenerated at boot.
+const UNCLEARABLE_SECRETS = new Set(["web.password", "web.sessionSecret", "proxy.token"]);
 
 // Structural fields the Landing Page shows read-only (lockout / footguns, ADR-0010).
 // PUT can never change them — they stay hand-edit-only.
@@ -551,7 +597,8 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>): vo
 }
 
 // Build the next Config from a PUT body (masked-config shape). Absent fields keep
-// current values; masked secrets keep the stored value; locked fields are pinned.
+// current values; masked (boolean) secrets keep the stored value; a string secret is the
+// new value, and "" clears it unless it's in UNCLEARABLE_SECRETS; locked fields are pinned.
 // Throws ConfigError on an invalid result.
 export function applyApiConfig(current: Config, body: unknown): Config {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -566,9 +613,9 @@ export function applyApiConfig(current: Config, body: unknown): Config {
   }
   for (const { section, key } of SECRETS) {
     const v = b[section]?.[key];
-    if (typeof v === "string" && v !== "") {
+    if (typeof v === "string" && (v !== "" || !UNCLEARABLE_SECRETS.has(`${section}.${key}`))) {
       // web.password arrives as plaintext (Replace flow) — hash before it persists.
-      next[section][key] = section === "web" && key === "password" ? hashPassword(v) : v;
+      next[section][key] = section === "web" && key === "password" && v !== "" ? hashPassword(v) : v;
     } else {
       next[section][key] = (current as any)[section][key];
     }

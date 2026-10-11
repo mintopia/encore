@@ -5,7 +5,7 @@
 # Spotify app. Host mode also lets LAN Snapclients reach the audio ports directly.
 services:
   soloist:
-    image: ghcr.io/mintopia/musicparty-soloist:latest
+    image: ghcr.io/mintopia/encore:latest
     # build: .                  # uncomment (and comment the image line) to build locally
     network_mode: host          # required for Spotify Connect login + LAN Snapcast
     restart: unless-stopped
@@ -31,7 +31,7 @@ services:
     # login, since Docker Desktop can't put mDNS on your physical LAN). Comment out
     # network_mode above and use:
     # ports:
-    #   - "8687:8687"           # auth Proxy (WebSocket control + web UI)
+    #   - "80:80"               # auth Proxy (WebSocket control + web UI)
     #   - "1704:1704"           # Snapcast audio stream
     #   - "1705:1705"           # Snapcast control (TCP JSON-RPC)
     #   - "1780:1780"           # Snapcast web UI

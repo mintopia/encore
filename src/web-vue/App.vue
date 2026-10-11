@@ -77,7 +77,7 @@ function confirmDiscard() {
         <div class="brandmark">
           <PhMusicNotesSimple :size="20" weight="bold" color="#fff" />
         </div>
-        <div class="brandtxt">Soloist Proxy</div>
+        <div class="brandtxt">Encore</div>
       </div>
 
       <nav class="nav">

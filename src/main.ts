@@ -122,7 +122,7 @@ async function main(): Promise<number> {
 }
 
 // Compare the resolved real path, not argv[1] verbatim: when launched through an npm bin
-// symlink (npx / global install) argv[1] is the .bin/soloist-proxy link, while
+// symlink (npx / global install) argv[1] is the .bin/encore link, while
 // import.meta.url is the realpath'd module — without realpathSync they never match and
 // main() silently no-ops.
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {

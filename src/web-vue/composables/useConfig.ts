@@ -12,7 +12,7 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 // secret would mislabel genuine booleans, so match this fixed list (mirrors src/web).
 const SECRET_FIELDS: [string, string][] = [
   ["soloist", "apiKey"], ["proxy", "token"], ["webhooks", "secret"],
-  ["relay", "authorization"], ["web", "password"],
+  ["relay", "authorization"], ["relay", "appSecret"], ["web", "password"],
 ];
 
 async function api(path: string, opts?: RequestInit) {

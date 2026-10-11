@@ -10,6 +10,7 @@ import { sameOrigin, resolveAuth, type ClientAuth } from "./auth.js";
 import { AppControl, APP_CONTROL_PATH, appControlAllowed } from "./appcontrol.js";
 import { attachWebhooks, WebhookHistory, type WebhookDelivery } from "./webhooks.js";
 import { SoloistRelay, type RelayStatus } from "./relay.js";
+import { ExternalSnapcast } from "./snapexternal.js";
 import { handleWebRequest } from "./web.js";
 import { reconcileOutputs, startSinkPolling } from "./pipewire.js";
 import { isDockerMode } from "./runtime.js";
@@ -45,6 +46,29 @@ export function listenParts(listen: string): { host: string; port: number } {
     throw new Error(`invalid proxy.listen "${listen}": bad port`);
   }
   return { host, port };
+}
+
+// ENCORE_PORT overrides only the port, and only at bind time, so it is never written
+// back into the Config File (the round-trip problem ADR-0010 removed env to avoid).
+export function effectiveListen(listen: string, env: NodeJS.ProcessEnv = process.env): { host: string; port: number } {
+  const parts = listenParts(listen);
+  const raw = env.ENCORE_PORT?.trim();
+  if (!raw) return parts;
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(`invalid ENCORE_PORT "${raw}": expected 1-65535`);
+  }
+  return { host: parts.host, port };
+}
+
+function bindError(err: NodeJS.ErrnoException, port: number): Error {
+  if (err.code === "EACCES") {
+    return new Error(`cannot listen on port ${port}: permission denied (ports below 1024 need root). Set ENCORE_PORT or proxy.listen to a higher port, e.g. 8687`);
+  }
+  if (err.code === "EADDRINUSE") {
+    return new Error(`cannot listen on port ${port}: already in use. Set ENCORE_PORT or proxy.listen to a free port`);
+  }
+  return err;
 }
 
 export interface RunningProxy {
@@ -256,11 +280,14 @@ function handleUpgrade(
 }
 
 export function makeServer(cfg: Config, configPath: string, control?: SoloistControl): Promise<RunningProxy> {
-  const { host, port } = listenParts(cfg.proxy.listen);
+  const { host, port } = effectiveListen(cfg.proxy.listen);
   const hub = new SoloistHub(() => `ws://${cfg.soloistWs}`);
   attachAutoplay(hub, cfg);
   const history = attachWebhooks(hub, cfg);
   const relay = new SoloistRelay(hub, cfg);
+  const externalSnapcast = new ExternalSnapcast(cfg, () =>
+    void reconcileOutputs(cfg).catch((e) => log.error("external snapcast relink failed: %s", (e as Error).message)),
+  );
   const appControl = new AppControl(cfg);
   const wss = new WebSocketServer({ noServer: true });
 
@@ -269,12 +296,13 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
   const onConfigChange = (c: Config) => {
     hub.broadcastMessage({ type: "overlay_config", overlay: c.overlay });
     relay.apply();
+    if (isDockerMode()) externalSnapcast.apply();
   };
 
   const { publishProxyStatus, statusTimer, unlistenWebhooks } = wireDiagnostics(hub, relay, appControl, history, control);
 
   const server = createServer((req, res) => {
-    if (!handleWebRequest(req, res, cfg, configPath, control, onConfigChange, relay.status, (r) => appControl.closeForRequest(r))) res.writeHead(404, { "content-type": "text/plain" }).end("Not found\n");
+    if (!handleWebRequest(req, res, cfg, configPath, control, onConfigChange, relay.status, (r) => appControl.closeForRequest(r), () => externalSnapcast.status)) res.writeHead(404, { "content-type": "text/plain" }).end("Not found\n");
   });
 
   server.on("upgrade", (req, socket, head) => handleUpgrade(req, socket, head, cfg, hub, appControl, wss, publishProxyStatus));
@@ -293,12 +321,13 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
     void reconcileOutputs(cfg).catch((e) => log.error("boot reconcile failed: %s", (e as Error).message));
     // Keep the Audio page's sink list warm so it paints populated (see startSinkPolling).
     startSinkPolling(cfg);
+    externalSnapcast.apply();
   }
 
   return new Promise((resolve, reject) => {
-    server.once("error", reject);
+    server.once("error", (err) => reject(bindError(err, port)));
     server.listen(port, host, () => {
-      log("proxy listening on %s -> ws://%s", cfg.proxy.listen, cfg.soloistWs);
+      log("proxy listening on %s:%d -> ws://%s", host, port, cfg.soloistWs);
       resolve({
         server,
         hub,
@@ -308,6 +337,7 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
           unlistenWebhooks();
           hub.stop();
           relay.stop();
+          externalSnapcast.stop();
           await appControl.stop();
           wss.close();
           await new Promise<void>((res) => server.close(() => res()));

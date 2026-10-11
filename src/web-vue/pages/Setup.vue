@@ -64,7 +64,7 @@ function onSubmit(e: Event) {
 </script>
 
 <template>
-  <AuthShell title="Set up Soloist Proxy">
+  <AuthShell title="Set up Encore">
     <form class="card glass" method="POST" action="/setup" @submit="onSubmit">
       <div v-if="showError || clientError" class="err" role="alert">Passwords must match and be at least {{ MIN_PASSWORD_LENGTH }} characters.</div>
       <div class="fgroup">

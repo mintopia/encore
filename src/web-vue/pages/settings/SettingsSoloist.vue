@@ -57,11 +57,11 @@ const pipewireDeviceId = useId();
         <div class="dev-hint">Restart Soloist to apply.</div>
       </div>
       <SecretRow
-        label="Spotify API key" section="soloist" field-key="apiKey" revealable
+        label="Soloist API key" section="soloist" field-key="apiKey" revealable
         :is-set="secretSet['soloist.apiKey']" v-model="c.soloist.apiKey"
       />
       <SecretRow
-        label="WebSocket auth token" section="proxy" field-key="token" revealable
+        label="WebSocket auth token" section="proxy" field-key="token" revealable no-clear
         :is-set="secretSet['proxy.token']" v-model="c.proxy.token"
         hint="Bearer token external clients use to control Soloist over the WebSocket API. Auto-generated at setup."
       />
