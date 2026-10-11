@@ -1,0 +1,113 @@
+name: Dependency updates
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    outputs:
+      due: ${{ steps.check.outputs.due }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          published=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .published_at 2>/dev/null || true)
+          if [ "$MANUAL" = "true" ] || [ -z "$published" ]; then
+            echo "due=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          age=$(( ($(date -u +%s) - $(date -u -d "$published" +%s)) / 86400 ))
+          echo "Last release published $published ($age days ago)"
+          if [ "$age" -ge 30 ]; then echo "due=true"; else echo "due=false"; fi >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: due
+    if: needs.due.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Update app dependencies
+        run: |
+          npx --yes npm-check-updates --upgrade
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Update docs site dependencies
+        working-directory: site
+        run: |
+          npx --yes npm-check-updates --upgrade
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - id: changes
+        run: |
+          if git diff --quiet; then echo "changed=false"; else echo "changed=true"; fi >> "$GITHUB_OUTPUT"
+          git diff --stat
+
+      - id: tests
+        if: steps.changes.outputs.changed == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            npx tsc --noEmit
+            npm run typecheck:web
+            npm test
+            npm --prefix site run build
+          } 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - id: summary
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          {
+            echo "body<<EOF"
+            echo "Dependency update for the app and the docs site (all packages to latest, including majors)."
+            echo
+            if [ "$OUTCOME" = "success" ]; then
+              echo "Type checks, tests and the docs build passed."
+            else
+              echo "**Type checks, tests or the docs build failed** — this PR is a draft until fixed."
+              echo
+              echo '```'
+              tail -n 60 "$RUNNER_TEMP/tests.log"
+              echo '```'
+            fi
+            echo
+            echo '```'
+            git diff --stat
+            echo '```'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # A PAT lets the PR trigger CI; GITHUB_TOKEN works but its PRs don't run checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          base: develop
+          branch: chore/dependency-updates
+          commit-message: "chore(deps): update dependencies"
+          title: "chore(deps): update dependencies"
+          body: ${{ steps.summary.outputs.body }}
+          draft: ${{ steps.tests.outcome != 'success' }}
+          delete-branch: true

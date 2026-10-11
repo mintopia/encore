@@ -135,6 +135,15 @@ The Soloist licence from Spotify doesn't allow distribution of Soloist, and buil
 
 If you find an issue with it, please raise it on the issue tracker so I can triage it and investigate it.
 
+## Keeping Up to Date
+
+Two scheduled GitHub Actions workflows keep the project current. Both raise pull requests against `develop` and can be run by hand from the Actions tab.
+
+- **Snapserver version** (`snapserver-version.yml`) runs daily. If a newer Snapcast release has the trixie pipewire `.deb` for every supported architecture, it bumps `SNAPCAST_VERSION` in the `Dockerfile`, builds the image to check it, and opens a PR.
+- **Dependency updates** (`dependency-updates.yml`) runs daily but only does anything once the last release is at least 30 days old (manual runs always go ahead). It updates every npm dependency in the app and the docs site to its latest version, majors included, runs the type checks, tests and docs build, and opens or refreshes a single `chore/dependency-updates` PR. If anything fails, the PR is opened as a draft with the failure output.
+
+PRs opened with the default `GITHUB_TOKEN` don't trigger CI, so set a `RELEASE_PLEASE_TOKEN` secret (a PAT) to have checks run on them.
+
 ## AI Disclosure
 
 AI tools (Claude, Codex) were used for writing this application.
