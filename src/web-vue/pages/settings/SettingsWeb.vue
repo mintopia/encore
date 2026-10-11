@@ -15,7 +15,7 @@ const c = config as any;
     <div class="grid2">
       <TextField label="Username" v-model="c.web.username" />
       <SecretRow
-        label="Password" section="web" field-key="password"
+        label="Password" section="web" field-key="password" no-clear
         :is-set="secretSet['web.password']" v-model="c.web.password"
       />
     </div>

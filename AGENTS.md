@@ -32,7 +32,7 @@ Never fall back to Grep, Read, or Glob for indexed repos.
 
 ### Issue tracker
 
-Issues live as GitHub issues (`gh` CLI), repo `mintopia/musicparty-soloist`. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues (`gh` CLI), repo `mintopia/encore`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

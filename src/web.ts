@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ConfigError, applyApiConfig, configSummary, hashPassword, isPasswordHashed, maskConfig, saveConfig, verifyPassword, type Config } from "./config.js";
 import type { RelayStatus } from "./relay.js";
+import type { ExternalSnapcastStatus } from "./wire-contract.js";
 import type { SoloistControl } from "./supervisor.js";
 import { getSinkCache, refreshSinkCache, reconcileOutputs, listStandaloneSinks } from "./pipewire.js";
 import { isDockerMode } from "./runtime.js";
@@ -28,6 +29,7 @@ const REVEALABLE = new Map<string, (cfg: Config) => string>([
   ["soloist.apiKey", (cfg) => cfg.soloist.apiKey],
   ["proxy.token", (cfg) => cfg.proxy.token],
   ["relay.authorization", (cfg) => cfg.relay.authorization],
+  ["relay.appSecret", (cfg) => cfg.relay.appSecret],
 ]);
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -286,6 +288,7 @@ export function handleWebRequest(
   onConfigChange?: (cfg: Config) => void,
   relayStatus?: RelayStatus,
   onLogout?: (req: IncomingMessage) => void,
+  externalSnapcastStatus?: () => ExternalSnapcastStatus,
 ): boolean {
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname;
@@ -309,6 +312,13 @@ export function handleWebRequest(
   // Open (unauthenticated): the overlay embeds the Read-only Token server-side.
   if (path === "/overlay" && method === "GET") {
     serveOverlay(res, cfg);
+    return true;
+  }
+
+  if (path === "/api/snapcast-external" && method === "GET") {
+    if (apiAuthed(req, res, cfg)) {
+      json(res, 200, externalSnapcastStatus?.() ?? { mode: "off", capturing: false, connected: false, clients: 0, lastError: null });
+    }
     return true;
   }
 

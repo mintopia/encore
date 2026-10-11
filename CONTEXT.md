@@ -1,4 +1,4 @@
-# Musicparty Soloist
+# Encore
 
 A wrapper around Spotify Soloist (a headless Linux Spotify Connect client) that
 adds authenticated remote access to its control WebSocket, and — in its Docker
@@ -34,12 +34,13 @@ _Avoid_: Proxy (that is the auth front; the Hub is the frame core behind it).
 **Auth Token**:
 A single shared secret. A Downstream Client presents it as `Authorization: Bearer
 <token>` or `?token=<token>`; a bad/missing token is rejected 401 at the WS upgrade.
-_Avoid_: API key (that is the Spotify API Key — a different thing), password.
+_Avoid_: API key (that is the Soloist API Key — a different thing), password.
 
-**API Key**:
+**Soloist API Key** (API Key):
 The Spotify-for-Developers private key passed to Soloist as `--api-key`. It authorizes
-the *app*, not a user — it does not log anyone in. Supplied via env/config, never committed.
-_Avoid_: Auth Token (that gates our Proxy), Spotify credentials, secret.
+the *app*, not a user — it does not log anyone in. Stored in the Config File, never committed.
+_Avoid_: Spotify API Key (suggests the Spotify Web API), Auth Token (that gates our Proxy),
+Spotify credentials, secret.
 
 **Spotify Login** (Connect pairing):
 Separate from the API Key. Soloist starts `logged_in: false` and waits for a Spotify
@@ -76,6 +77,14 @@ The Snapcast server, run inside the Docker image on host networking so LAN clien
 reach it. Its stream name is operator-configurable.
 _Avoid_: snapcast (that is the project/protocol; the process is snapserver).
 
+**External Snapcast** (Docker only):
+An Audio Output that sends Soloist's audio to a Snapserver outside the container, alongside
+the bundled one. A Proxy-supervised `pw-record` capture node (`soloist-snapcast-external`)
+is linked from `soloist-sink:monitor` like any output. Its raw PCM (48000:16:2) is either
+*pushed* to the external server's `tcp://` source at a host and port, or served on a port for the
+external server to *pull* (`mode=client`). See ADR-0024.
+_Avoid_: remote Snapserver (ambiguous with LAN clients), relay (the WebSocket bridge).
+
 **Autoplay**:
 Opt-in Hub behavior (off by default). Once the upstream connection is up and Soloist
 reports `logged_in: true` (via an `auth_state` event), the Hub injects `activate` then
@@ -101,6 +110,12 @@ unfiltered — unlike the Webhook's ten-event subset); every frame received back
 Relay Server is injected upstream to Soloist verbatim, giving the Relay Server full
 control (like a Downstream Client holding the Auth Token, not the Read-only Token). A
 single optional `Authorization` header value is sent verbatim on the outbound upgrade.
+Optional Pusher mode (built for Laravel Reverb) subscribes to a required `channel`, signing
+the subscription with the app key and secret when it is a `private-`/`presence-` channel.
+Once subscribed, it sends each outbound frame as a client event (`event` = `client-<type>`,
+`data` = the frame). It unwraps the `data` of events received on that channel before
+injecting it, and handles `pusher:*` protocol events itself (answering `pusher:ping`).
+Off by default, which keeps the frames verbatim.
 Loop-safe by construction: injected frames never re-enter the observer fan-out. Trust is
 the operator's — they chose the address.
 _Avoid_: bridge (the audio path — see Audio Route), Webhook (one-way HTTP, event subset),

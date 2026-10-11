@@ -13,7 +13,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AuthShell title="Sign in to Soloist Proxy">
+  <AuthShell title="Sign in to Encore">
     <form class="card glass" method="POST" action="/login">
       <div v-if="showError" class="err" role="alert">Incorrect username or password.</div>
       <div class="fgroup">

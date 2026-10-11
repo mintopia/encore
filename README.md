@@ -1,6 +1,8 @@
-# Soloist Proxy
+# Encore
 
-Soloist Proxy wraps [Spotify Soloist](https://developer.spotify.com/documentation/soloist), the official headless Linux Spotify Connect client. It adds authentication, webhook support, a web console and lyrics.
+Encore wraps [Spotify Soloist](https://developer.spotify.com/documentation/soloist), the official headless Linux Spotify Connect client. It adds authentication, webhook support, a web console and lyrics.
+
+**Documentation, including a step-by-step Raspberry Pi guide: <https://pimusic.stream/>**
 
 It can be run standalone using `npx` or it can be run through docker which will also provide audio device management and a snapcast server for streaming synchronised audio.
 
@@ -8,12 +10,12 @@ This was originally built to accompany [Music Party](https://github.com/mintopia
 
 ## Features
 
-* **Web Console** - Configure Soloist Proxy, watch now-playing with playback controls, and get a lyrics overlay and debug info.
-* **Websocket Authorisation** - Soloist's own websocket has no authentication, so Soloist Proxy lets you require a query parameter or auth header.
-* **Websocket Relay** - Soloist Proxy can make an outbound websocket connection, with optional authorisation, and relay everything over it.
+* **Web Console** - Configure Encore, watch now-playing with playback controls, and get a lyrics overlay and debug info.
+* **Websocket Authorisation** - Soloist's own websocket has no authentication, so Encore lets you require a query parameter or auth header.
+* **Websocket Relay** - Encore can make an outbound websocket connection, with optional authorisation, and relay everything over it, optionally speaking the Pusher protocol (e.g. Laravel Reverb) on a given channel.
 * **Webhooks** - Configure webhooks with a minimum interval, a secret, and hooks for particular events.
 * **Lyrics** - Fetches lyrics for the current song from [LRCLIB](https://lrclib.net/) and serves an unauthenticated HTML overlay for OBS or anything that can overlay a webpage.
-* **Snapcast** - The docker version bundles a [Snapcast](https://github.com/badaix/snapcast) server for streaming audio around your network.
+* **Snapcast** - The docker version bundles a [Snapcast](https://github.com/badaix/snapcast) server for streaming audio around your network, and can also send the audio to an external Snapcast server.
 * **Autoplay** - Start playback in Soloist automatically once it authenticates with Spotify.
 * **PipeWire Included** - Soloist needs PipeWire, which most headless Linux distros don't ship. The docker version handles it for you; you just map the sound devices through.
 
@@ -34,7 +36,7 @@ The easy path. No fighting with PipeWire, and you get Snapcast too. Use a `docke
 ```yml
 services:
   soloist:
-    image: ghcr.io/mintopia/musicparty-soloist:latest
+    image: ghcr.io/mintopia/encore:latest
     network_mode: host
     restart: unless-stopped
     devices:
@@ -62,23 +64,25 @@ You can bring it up by running:
 docker compose up -d
 ```
 
-And now you can visit `http://<host>:8687` to access Soloist and begin setup.
+And now you can visit `http://<host>` to access Soloist and begin setup.
 
 ### Standalone (npx)
 
-To use this, you will need to have Node.js 24+ and configure your own PipeWire devices for audio output and there's no Snapcast server provided. Soloist will use the default PipeWire device but can be overridden in Soloist Proxy configuration.
+To use this, you will need to have Node.js 24+ and configure your own PipeWire devices for audio output and there's no Snapcast server provided. Soloist will use the default PipeWire device but can be overridden in Encore configuration.
 
 ```bash
-npx @mintopia/musicparty-soloist
+npx @mintopia/encore
 ```
 
-You can now visit `http://<host>:8687` and begin first-time setup.
+You can now visit `http://<host>` and begin first-time setup.
+
+Port 80 needs root. As a normal user, pick a higher port: `ENCORE_PORT=8687 npx @mintopia/encore`, then visit `http://<host>:8687`.
 
 ## Usage
 
 ### Soloist API Key
 
-The API Key authorises the Soloist. Obtain it from the [Spotify for Developers](https://developer.spotify.com) dashboard; it needs a Spotify Premium account. It does **not** log a user in. Pairing over Spotify Connect is a separate step. It is stored as `soloist.api_key` in the Config File, passed to Soloist as `--api-key`, and masked in the UI.
+The Soloist API Key authorises the Soloist. Obtain it from the [Spotify for Developers](https://developer.spotify.com) dashboard; it needs a Spotify Premium account. It does **not** log a user in. Pairing over Spotify Connect is a separate step. It is stored as `soloist.api_key` in the Config File, passed to Soloist as `--api-key`, and masked in the UI.
 
 ### First Run
 
@@ -90,7 +94,7 @@ The API Key authorises the Soloist. Obtain it from the [Spotify for Developers](
 
 | Port | Service |
 |------|---------|
-| 8687 | Auth proxy (control WebSocket) + web UI + Lyrics Overlay |
+| 80 | Auth proxy (control WebSocket) + web UI + Lyrics Overlay. Change with `proxy.listen` or the `ENCORE_PORT` environment variable |
 | 1704 | Snapcast audio stream |
 | 1705 | Snapcast control (TCP JSON-RPC) |
 | 1780 | Snapcast web UI |
@@ -121,7 +125,7 @@ The API key authorises the app but doesn't log you into Spotify. To log in, open
 
 ### Why does it download Soloist on startup?
 
-The Soloist licence from Spotify doesn't allow distribution of Soloist, and builds are only valid for 90 days, so Soloist Proxy manages this by downloading it on first run and keeping it up to date.
+The Soloist licence from Spotify doesn't allow distribution of Soloist, and builds are only valid for 90 days, so Encore manages this by downloading it on first run and keeping it up to date.
 
 ### What is Music Party?
 

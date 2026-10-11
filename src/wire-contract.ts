@@ -16,6 +16,14 @@ export interface RelayStatus {
   lastError: string | null;
 }
 
+export interface ExternalSnapcastStatus {
+  mode: "off" | "push" | "pull";
+  capturing: boolean;   // the pw-record feeder is running
+  connected: boolean;   // push: our connection to the external snapserver is up
+  clients: number;      // pull: external snapservers currently reading from us
+  lastError: string | null;
+}
+
 // Compact status snapshot (buildProxyStatus): the webhook field is a summary only —
 // full delivery detail rides the separate `webhooks` stream.
 export interface ProxyStatus {

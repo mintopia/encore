@@ -1,6 +1,6 @@
-# Musicparty Soloist — containerized standalone deliverable (no audio path yet).
+# Encore: Spotify Soloist + auth Proxy + PipeWire + Snapserver, supervised by s6.
 # s6-overlay is PID 1: it reaps zombies and supervises/restarts the Node app.
-# Run with host networking so the Proxy on 8687 is reachable from the LAN.
+# Run with host networking so the Proxy (port 80 by default) is reachable from the LAN.
 # Debian trixie (glibc 2.41): the Soloist binary needs GLIBC_2.38+, which bookworm
 # (2.36) does not have. Alpine is ruled out — Soloist is a glibc binary and the
 # pipewire-enabled Snapserver ships only as a .deb.
@@ -92,11 +92,11 @@ ENV SOLOIST_CACHE_DIR=/cache \
     XDG_RUNTIME_DIR=/run/pipewire
 VOLUME ["/config", "/data", "/cache"]
 
-# 8687 Proxy; 1704 Snapcast stream, 1705 Snapcast control, 1780 Snapcast web UI
+# 80 Proxy (proxy.listen / ENCORE_PORT); 1704 Snapcast stream, 1705 Snapcast control, 1780 Snapcast web UI
 # (host networking, so these are documentation — the ports bind on the host directly).
-EXPOSE 8687 1704 1705 1780
+EXPOSE 80 1704 1705 1780
 # start-period is generous: first boot downloads the Soloist binary before the Proxy binds.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
-    CMD node -e "require('net').createConnection({host:'127.0.0.1',port:8687},()=>process.exit(0)).on('error',()=>process.exit(1))"
+    CMD ["node", "dist/healthcheck.js", "/config/config.yaml"]
 
 ENTRYPOINT ["/init"]

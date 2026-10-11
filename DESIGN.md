@@ -1,4 +1,4 @@
-# Design — Soloist Proxy
+# Design — Encore
 
 Visual system for the Proxy's web console: **Now Playing**, **Lyrics**, **Settings**
 (master-detail), **Debug**, plus **Login**/**Setup** and the transparent **Lyrics Overlay**.

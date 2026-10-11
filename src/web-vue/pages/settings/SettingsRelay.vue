@@ -5,6 +5,7 @@ import SectionCard from "../../components/SectionCard.vue";
 import LoadingState from "../../components/LoadingState.vue";
 import TextField from "../../components/TextField.vue";
 import SecretRow from "../../components/SecretRow.vue";
+import ToggleSwitch from "../../components/ToggleSwitch.vue";
 import type { RelayStatus } from "../../../wire-contract";
 
 const { config, secretSet, loaded } = useConfig();
@@ -54,12 +55,34 @@ const pill = computed(() => {
         hint="Sent as the Authorization header when connecting to the relay server. Optional — leave blank if the relay needs no auth."
       />
     </div>
+    <div class="setrow">
+      <div class="setrow-txt">
+        <div class="setrow-title">Pusher protocol</div>
+        <div class="setrow-sub">For Laravel Reverb or other Pusher servers. Frames are sent as client-&lt;type&gt; events on the channel. Events received on the channel are unwrapped and sent to Soloist.</div>
+      </div>
+      <ToggleSwitch :on="c.relay.pusher" label="Pusher protocol" @toggle="c.relay.pusher = !c.relay.pusher" />
+    </div>
+    <div v-if="c.relay.pusher" class="grid2 pusher-fields">
+      <TextField label="Channel" placeholder="private-soloist" v-model="c.relay.channel" />
+      <div></div>
+      <TextField label="App key (private channels)" placeholder="REVERB_APP_KEY" v-model="c.relay.appKey" />
+      <SecretRow
+        label="App secret (private channels)" section="relay" field-key="appSecret" revealable optional
+        :is-set="secretSet['relay.appSecret']" v-model="c.relay.appSecret"
+        hint="Signs the subscription to private- and presence- channels. Not needed for public channels."
+      />
+    </div>
   </SectionCard>
 </template>
 
 <style scoped>
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; align-items: start; }
 @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.setrow-txt { min-width: 0; }
+.setrow-title { font-size: 14px; font-weight: 600; }
+.setrow-sub { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+.pusher-fields { margin-top: 16px; }
 .relay-head { display: flex; justify-content: flex-end; margin-bottom: 14px; }
 .relay-pill { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .relay-err { font-size: 11.5px; color: var(--faint); max-width: 340px; text-align: right; overflow-wrap: break-word; word-break: break-word; }
