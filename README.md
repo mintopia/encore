@@ -137,10 +137,12 @@ If you find an issue with it, please raise it on the issue tracker so I can tria
 
 ## Keeping Up to Date
 
-Two scheduled GitHub Actions workflows keep the project current. Both raise pull requests against `develop` and can be run by hand from the Actions tab.
+The scheduled **Updates** workflow (`.github/workflows/updates.yml`) runs daily and goes ahead when either:
 
-- **Snapserver version** (`snapserver-version.yml`) runs daily. If a newer Snapcast release has the trixie pipewire `.deb` for every supported architecture, it bumps `SNAPCAST_VERSION` in the `Dockerfile`, builds the image to check it, and opens a PR.
-- **Dependency updates** (`dependency-updates.yml`) runs daily but only does anything once the last release is at least 30 days old (manual runs always go ahead). It updates every npm dependency in the app and the docs site to its latest version, majors included, runs the type checks, tests and docs build, and opens or refreshes a single `chore/dependency-updates` PR. If anything fails, the PR is opened as a draft with the failure output.
+- a newer Snapcast release has the trixie pipewire `.deb` for every supported architecture, or
+- the last release is at least 30 days old.
+
+Manual runs from the Actions tab always go ahead. When it runs, it bumps `SNAPCAST_VERSION` in the `Dockerfile` if needed, updates every npm dependency in the app and the docs site to its latest version (majors included), then runs the type checks, tests, docs build and a Docker image build. It opens or refreshes a single `chore/updates` PR against `develop`; if anything fails, the PR is a draft with the failure output.
 
 PRs opened with the default `GITHUB_TOKEN` don't trigger CI, so set a `RELEASE_PLEASE_TOKEN` secret (a PAT) to have checks run on them.
 

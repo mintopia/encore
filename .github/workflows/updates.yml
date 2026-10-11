@@ -1,4 +1,4 @@
-name: Dependency updates
+name: Updates
 
 on:
   schedule:
@@ -13,20 +13,48 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       due: ${{ steps.check.outputs.due }}
+      snapserver: ${{ steps.check.outputs.snapserver }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}
           MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          published=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .published_at 2>/dev/null || true)
-          if [ "$MANUAL" = "true" ] || [ -z "$published" ]; then
-            echo "due=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          due=$MANUAL
+
+          current=$(sed -nE 's/^ARG SNAPCAST_VERSION=(.+)$/\1/p' Dockerfile)
+          release=$(gh api repos/badaix/snapcast/releases/latest)
+          latest=$(jq -r '.tag_name | ltrimstr("v")' <<<"$release")
+          echo "Snapserver pinned: $current, latest: $latest"
+          if [ "$current" != "$latest" ]; then
+            # The image needs the trixie pipewire build for every arch the Dockerfile supports.
+            missing=""
+            for arch in amd64 arm64 armhf; do
+              deb="snapserver_${latest}-1_${arch}_trixie_with-pipewire.deb"
+              jq -e --arg n "$deb" 'any(.assets[]; .name == $n)' <<<"$release" >/dev/null || missing="$missing $deb"
+            done
+            if [ -n "$missing" ]; then
+              echo "::warning::Snapserver $latest is out but missing assets:$missing"
+            else
+              echo "snapserver=$latest" >> "$GITHUB_OUTPUT"
+              due=true
+            fi
           fi
-          age=$(( ($(date -u +%s) - $(date -u -d "$published" +%s)) / 86400 ))
-          echo "Last release published $published ($age days ago)"
-          if [ "$age" -ge 30 ]; then echo "due=true"; else echo "due=false"; fi >> "$GITHUB_OUTPUT"
+
+          published=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .published_at 2>/dev/null || true)
+          if [ -z "$published" ]; then
+            due=true
+          else
+            age=$(( ($(date -u +%s) - $(date -u -d "$published" +%s)) / 86400 ))
+            echo "Last release published $published ($age days ago)"
+            [ "$age" -ge 30 ] && due=true
+          fi
+
+          echo "due=$due" >> "$GITHUB_OUTPUT"
 
   update:
     needs: due
@@ -43,6 +71,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Bump Snapserver
+        if: needs.due.outputs.snapserver != ''
+        env:
+          VERSION: ${{ needs.due.outputs.snapserver }}
+        run: sed -i -E "s/^ARG SNAPCAST_VERSION=.+$/ARG SNAPCAST_VERSION=${VERSION}/" Dockerfile
 
       - name: Update app dependencies
         run: |
@@ -72,21 +106,28 @@ jobs:
             npm run typecheck:web
             npm test
             npm --prefix site run build
+            # Also asserts the Snapserver pipewire linkage.
+            docker build -t encore:update-check .
           } 2>&1 | tee "$RUNNER_TEMP/tests.log"
 
       - id: summary
         if: steps.changes.outputs.changed == 'true'
         env:
           OUTCOME: ${{ steps.tests.outcome }}
+          SNAPSERVER: ${{ needs.due.outputs.snapserver }}
         run: |
           {
             echo "body<<EOF"
-            echo "Dependency update for the app and the docs site (all packages to latest, including majors)."
+            echo "Updates every npm dependency in the app and the docs site to its latest version, majors included."
+            if [ -n "$SNAPSERVER" ]; then
+              echo
+              echo "Bumps Snapserver to \`$SNAPSERVER\` ([release notes](https://github.com/badaix/snapcast/releases/tag/v$SNAPSERVER))."
+            fi
             echo
             if [ "$OUTCOME" = "success" ]; then
-              echo "Type checks, tests and the docs build passed."
+              echo "Type checks, tests, the docs build and the Docker image build passed."
             else
-              echo "**Type checks, tests or the docs build failed** — this PR is a draft until fixed."
+              echo "**Type checks, tests, the docs build or the Docker image build failed** — this PR is a draft until fixed."
               echo
               echo '```'
               tail -n 60 "$RUNNER_TEMP/tests.log"
@@ -105,7 +146,7 @@ jobs:
           # A PAT lets the PR trigger CI; GITHUB_TOKEN works but its PRs don't run checks.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           base: develop
-          branch: chore/dependency-updates
+          branch: chore/updates
           commit-message: "chore(deps): update dependencies"
           title: "chore(deps): update dependencies"
           body: ${{ steps.summary.outputs.body }}
