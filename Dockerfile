@@ -42,6 +42,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 COPY docker/pipewire/soloist-sink.conf /etc/pipewire/pipewire.conf.d/10-soloist-sink.conf
 COPY docker/wireplumber/80-disable-bluez.conf /etc/wireplumber/wireplumber.conf.d/80-disable-bluez.conf
+COPY docker/wireplumber/81-full-sink-volume.conf /etc/wireplumber/wireplumber.conf.d/81-full-sink-volume.conf
 
 # Snapserver (ticket 07): serves the captured audio to LAN Snapclients. Must be a
 # pipewire-enabled build — default packages ship BUILD_WITH_PIPEWIRE=OFF, so we
