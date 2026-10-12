@@ -20,6 +20,13 @@ Every ALSA sound card passed into the container through `/dev/snd` appears in th
 If a card is missing, check `aplay -l` on the Pi lists it, and that the Compose file mounts
 both `/dev/snd` and `/run/udev`. Use **Refresh sinks** to rescan after plugging something in.
 
+Encore relinks outputs on its own within 30 seconds when a card is plugged in or PipeWire
+restarts. An output you switched on that isn't connected stays in the list as
+**(not detected)**, so you can switch it off.
+
+Hardware outputs start at full volume, so Spotify's volume control is the only one you
+need. Snapcast rooms also have their own per-client volume in Snapweb.
+
 ## Per-output delay
 
 Each hardware output has a **Delay (ms)** setting, from 0 to 5000 ms. Use it to line a

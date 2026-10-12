@@ -1,0 +1,162 @@
+name: Updates
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    outputs:
+      due: ${{ steps.check.outputs.due }}
+      snapserver: ${{ steps.check.outputs.snapserver }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          due=$MANUAL
+
+          current=$(sed -nE 's/^ARG SNAPCAST_VERSION=(.+)$/\1/p' Dockerfile)
+          release=$(gh api repos/badaix/snapcast/releases/latest)
+          latest=$(jq -r '.tag_name | ltrimstr("v")' <<<"$release")
+          echo "Snapserver pinned: $current, latest: $latest"
+          if [ "$current" != "$latest" ]; then
+            # The image needs the trixie pipewire build for every arch the Dockerfile supports.
+            missing=""
+            for arch in amd64 arm64 armhf; do
+              deb="snapserver_${latest}-1_${arch}_trixie_with-pipewire.deb"
+              jq -e --arg n "$deb" 'any(.assets[]; .name == $n)' <<<"$release" >/dev/null || missing="$missing $deb"
+            done
+            if [ -n "$missing" ]; then
+              echo "::warning::Snapserver $latest is out but missing assets:$missing"
+            else
+              echo "snapserver=$latest" >> "$GITHUB_OUTPUT"
+              due=true
+            fi
+          fi
+
+          published=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .published_at 2>/dev/null || true)
+          if [ -z "$published" ]; then
+            due=true
+          else
+            age=$(( ($(date -u +%s) - $(date -u -d "$published" +%s)) / 86400 ))
+            echo "Last release published $published ($age days ago)"
+            [ "$age" -ge 30 ] && due=true
+          fi
+
+          echo "due=$due" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: due
+    if: needs.due.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Bump Snapserver
+        if: needs.due.outputs.snapserver != ''
+        env:
+          VERSION: ${{ needs.due.outputs.snapserver }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed -i -E "s/^ARG SNAPCAST_VERSION=.+$/ARG SNAPCAST_VERSION=${VERSION}/" Dockerfile
+          for arch in amd64 arm64 armhf; do
+            deb="snapserver_${VERSION}-1_${arch}_trixie_with-pipewire.deb"
+            sha=$(gh api "repos/badaix/snapcast/releases/tags/v${VERSION}" --jq ".assets[] | select(.name == \"${deb}\") | .digest // empty | ltrimstr(\"sha256:\")")
+            [ -n "$sha" ] || { echo "::error::no digest for ${deb}"; exit 1; }
+            sed -i -E "s/^ARG SNAPSERVER_SHA256_${arch^^}=.+$/ARG SNAPSERVER_SHA256_${arch^^}=${sha}/" Dockerfile
+          done
+
+      - name: Update app dependencies
+        run: |
+          npx --yes npm-check-updates --upgrade
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Update docs site dependencies
+        working-directory: site
+        run: |
+          npx --yes npm-check-updates --upgrade
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - id: changes
+        run: |
+          if git diff --quiet; then echo "changed=false"; else echo "changed=true"; fi >> "$GITHUB_OUTPUT"
+          git diff --stat
+
+      - id: tests
+        if: steps.changes.outputs.changed == 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            npx tsc --noEmit
+            npm run typecheck:web
+            npm test
+            npm --prefix site run build
+            # Also asserts the Snapserver pipewire linkage.
+            docker build -t encore:update-check .
+          } 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - id: summary
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          OUTCOME: ${{ steps.tests.outcome }}
+          SNAPSERVER: ${{ needs.due.outputs.snapserver }}
+        run: |
+          {
+            echo "body<<EOF"
+            echo "Updates every npm dependency in the app and the docs site to its latest version, majors included."
+            if [ -n "$SNAPSERVER" ]; then
+              echo
+              echo "Bumps Snapserver to \`$SNAPSERVER\` ([release notes](https://github.com/badaix/snapcast/releases/tag/v$SNAPSERVER))."
+            fi
+            echo
+            if [ "$OUTCOME" = "success" ]; then
+              echo "Type checks, tests, the docs build and the Docker image build passed."
+            else
+              echo "**Type checks, tests, the docs build or the Docker image build failed** — this PR is a draft until fixed."
+              echo
+              echo '```'
+              tail -n 60 "$RUNNER_TEMP/tests.log"
+              echo '```'
+            fi
+            echo
+            echo '```'
+            git diff --stat
+            echo '```'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          # A PAT lets the PR trigger CI; GITHUB_TOKEN works but its PRs don't run checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          base: develop
+          branch: chore/updates
+          commit-message: "chore(deps): update dependencies"
+          title: "chore(deps): update dependencies"
+          body: ${{ steps.summary.outputs.body }}
+          draft: ${{ steps.tests.outcome != 'success' }}
+          delete-branch: true

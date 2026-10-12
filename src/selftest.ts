@@ -41,6 +41,7 @@ import {
   buildDelayTokens,
   generateFilterChainConf,
   reconcileOutputs,
+  outputsNeedRelink,
   SNAPCAST_KEY,
   DELAY_PREFIX,
   getSinkCache,
@@ -48,13 +49,15 @@ import {
   type Runner,
   type Spawner,
 } from "./pipewire.js";
+import { reconnectLoop } from "./reconnect.js";
 
 // Overlay engine lives in src/web/ (browser ESM, copied to dist/web/). Computed
 // specifier so tsc treats it as `any` — it ships no .d.ts.
 const engine = await import(new URL("./web/overlay.js", import.meta.url).href);
-const { parseLRC, currentIndex } = engine as {
+const { parseLRC, currentIndex, fetchSyncedLyrics } = engine as {
   parseLRC(text: string): { time: number; text: string }[];
   currentIndex(lines: { time: number }[], t: number): number;
+  fetchSyncedLyrics(track: { uri: string; title: string; artist: string }): Promise<{ time: number }[] | null>;
 };
 
 const landing = await import(new URL("./web/frame.js", import.meta.url).href);
@@ -171,6 +174,13 @@ function req(headers: Record<string, string>, url = "/"): IncomingMessage {
 }
 
 // listenParts rejects port 0, so makeServer can't bind an OS-assigned ephemeral port directly.
+const tempDirs: string[] = [];
+function tempDir(prefix: string): string {
+  const d = mkdtempSync(join(tmpdir(), prefix));
+  tempDirs.push(d);
+  return d;
+}
+
 // Claiming a free port with a throwaway listener then handing it to makeServer is a TOCTOU another
 // process can win between close() and listen() (EADDRINUSE). Retry on a fresh port instead of
 // failing flakily (TEST-H3). Sets cfg.proxy.listen and returns the port the caller connects to.
@@ -247,7 +257,7 @@ assert.equal(tarballUrl("arm64", "https://x/y/"), "https://x/y/soloist_release_a
 
 
 await test("binaryIsFresh", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "soloist-fresh-"));
+  const dir = tempDir("soloist-fresh-");
   try {
     const fresh = join(dir, "fresh");
     writeFileSync(fresh, "x");
@@ -622,6 +632,44 @@ await test("relayView (reports url/auth-presence/status, hides auth; disabled)",
 });
 
 
+await test("Lyrics fetch: transient failures aren't cached, misses are, requests are shared", async () => {
+  const store = new Map<string, string>();
+  const g = globalThis as Record<string, unknown>;
+  const saved = { fetch: g.fetch, localStorage: g.localStorage };
+  g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
+  let calls = 0;
+  let respond: (url: string) => { status: number; body?: unknown } = () => ({ status: 500 });
+  g.fetch = async (url: string) => {
+    calls++;
+    const { status, body } = respond(url);
+    return { status, ok: status < 400, headers: new Headers({ "Retry-After": "0" }), json: async () => body };
+  };
+  try {
+    const t = { uri: "spotify:track:a", title: "A", artist: "B" };
+    assert.equal(await fetchSyncedLyrics(t), null, "500 -> no lyrics");
+    assert.equal(store.size, 0, "a transient failure is not cached");
+
+    calls = 0;
+    respond = () => ({ status: 429 });
+    await fetchSyncedLyrics(t);
+    assert.equal(calls, 3, "429 retries are capped at 3 tries");
+    assert.equal(store.size, 0, "a rate-limited lookup is not cached");
+
+    calls = 0;
+    respond = (url) => (url.includes("/get?") ? { status: 404 } : { status: 200, body: [] });
+    const [x, y] = await Promise.all([fetchSyncedLyrics(t), fetchSyncedLyrics(t)]);
+    assert.equal(x, null, "404 + empty search -> no lyrics");
+    assert.equal(y, null, "second concurrent caller gets the same result");
+    assert.equal(calls, 2, "concurrent callers share one get + one search");
+    assert.equal(JSON.parse([...store.values()][0]).syncedLyrics, null, "a definitive miss is cached");
+    await fetchSyncedLyrics(t);
+    assert.equal(calls, 2, "a cached miss doesn't refetch");
+  } finally {
+    g.fetch = saved.fetch;
+    g.localStorage = saved.localStorage;
+  }
+});
+
 await test("Lyrics overlay parseLRC + currentIndex", async () => {
   const lrc = ["[ar:The Weeknd]", "[00:12.50]First line", "[00:15.00]Second line", "[00:15.00]Same time echo", "not a timed line", "[01:03.20]Later"].join("\n");
   const lines = parseLRC(lrc);
@@ -656,7 +704,7 @@ await test("overlayBootstrap token + overlay only", async () => {
 
 
 function freshConfigDir(): { dir: string; cfgPath: string } {
-  const dir = mkdtempSync(join(tmpdir(), "cfgtest-"));
+  const dir = tempDir("cfgtest-");
   const cfgPath = join(dir, "config.yaml");
   writeFileSync(
     cfgPath,
@@ -707,7 +755,7 @@ await test("loadConfig: literals, section defaults, missing file", async () => {
 
 
 await test("overlay enum values coerce to defaults", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "enum-"));
+  const dir = tempDir("enum-");
   const badPath = join(dir, "config.yaml");
   writeFileSync(badPath, ["overlay:", "  motion: nonsense", "  effect: bogus", "  alignment: sideways", "  anchor: middle"].join("\n"));
   const bad = loadConfig(badPath);
@@ -854,7 +902,7 @@ await test("config API secret handling (mask/summary/apply/webhook-replace)", as
     soloist: { apiKey: "" },
     webhooks: { secret: "" },
     relay: { authorization: "", appSecret: "" },
-    proxy: { token: "" },
+    proxy: { token: "", readonlyToken: "" },
     web: { password: "" },
   });
   assert.equal(cleared.soloist.apiKey, "", "empty-string apiKey clears it");
@@ -863,10 +911,15 @@ await test("config API secret handling (mask/summary/apply/webhook-replace)", as
   assert.equal(cleared.relay.appSecret, "", "empty-string relay app secret clears it");
   assert.equal(cleared.proxy.token, "SECRET_TOK", "auth token can't be cleared (required, regenerated at boot)");
   assert.equal(cleared.web.password, "SECRET_PW", "web password can't be cleared (would reopen Setup)");
+  assert.equal(cleared.proxy.readonlyToken, "SECRET_RO", "read-only token can't be cleared (overlays would 401)");
+  assert.throws(() => applyApiConfig({ ...sCfg, web: { ...sCfg.web, username: "dj" } }, { web: { username: "  " } }), ConfigError, "blank username rejected (would reopen Setup)");
+  assert.throws(() => applyApiConfig(sCfg, { web: { password: "short" } }), ConfigError, "PUT password below the setup minimum rejected");
+  assert.throws(() => applyApiConfig(sCfg, { streamName: "Kitchen & Lounge" }), ConfigError, "stream name with URI query chars rejected");
+  assert.equal(applyApiConfig(sCfg, { streamName: "Küche 2" }).streamName, "Küche 2", "plain stream name accepted");
 
   const pwApplied = applyApiConfig(sCfg, { web: { password: "plaintext-pw" } });
   assert.ok(isPasswordHashed(pwApplied.web.password), "PUT plaintext password stored hashed");
-  assert.ok(verifyPassword("plaintext-pw", pwApplied.web.password), "hashed password verifies");
+  assert.ok(await verifyPassword("plaintext-pw", pwApplied.web.password), "hashed password verifies");
   assert.notEqual(pwApplied.web.password, "plaintext-pw", "cleartext password not stored");
 
   const whCfgBase = loadConfig(cfgPath);
@@ -980,8 +1033,7 @@ await test("Hub read-only drop + state replay, against a real in-process upstrea
   const ro = fake();
   hub.register(ro as unknown as WebSocket, meta({ tier: "readonly", auth: "readonly-token" }));
   assert.deepEqual(ro.sent, ['{"type":"playback_state","playing":true}'], "read-only client gets state replay on connect");
-  await hub.forward(ro as unknown as WebSocket, Buffer.from('{"type":"command","command":"play"}') as unknown as RawData, false);
-  assert.deepEqual(gotUpstream, [], "read-only client frames dropped, never forwarded upstream");
+  await hub.forward(ro as unknown as WebSocket, Buffer.from('{"type":"command","command":"pause"}') as unknown as RawData, false);
 
   const ctrl = fake();
   hub.register(ctrl as unknown as WebSocket, meta());
@@ -989,12 +1041,57 @@ await test("Hub read-only drop + state replay, against a real in-process upstrea
   await hub.forward(ctrl as unknown as WebSocket, Buffer.from('{"type":"command","command":"play"}') as unknown as RawData, false);
   // Poll until the forwarded frame lands upstream instead of a fixed settle sleep (TEST-H3).
   for (let i = 0; i < 400 && gotUpstream.length === 0; i++) await new Promise((r) => setTimeout(r, 5));
-  assert.deepEqual(gotUpstream, ['{"type":"command","command":"play"}'], "control client frames forwarded upstream");
+  // Frames reach upstream in send order, so a leaked read-only "pause" would land before
+  // "play"; the extra settle catches one that somehow lands after.
+  await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(gotUpstream, ['{"type":"command","command":"play"}'], "control frame forwarded; read-only frame never reaches upstream");
 
   hub.stop();
   upstream.close();
 });
 
+
+await test("reconnectLoop heartbeat drops a connection that stops answering pings", async () => {
+  const silent = new WebSocketServer({ host: "127.0.0.1", port: 0, autoPong: false });
+  await once(silent, "listening");
+  const port = (silent.address() as { port: number }).port;
+  let stopped = false;
+  let settled = 0;
+  const loop = reconnectLoop({
+    backoffBase: 60, backoffMax: 60, heartbeatMs: 20,
+    isStopped: () => stopped,
+    getWake: () => ({ promise: new Promise<void>(() => {}) }),
+    shouldDial: () => true,
+    connect: () => new WebSocket(`ws://127.0.0.1:${port}`),
+    onOpen() {}, onMessage() {}, onError() {},
+    onSettled: () => { settled++; stopped = true; },
+  });
+  for (let i = 0; i < 200 && !settled; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.equal(settled, 1, "unanswered ping terminates the socket");
+  await loop;
+  silent.close();
+});
+
+await test("Hub holds off dialing until Soloist is running", async () => {
+  const upstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  await once(upstream, "listening");
+  const port = (upstream.address() as { port: number }).port;
+  let connections = 0;
+  upstream.on("connection", () => connections++);
+
+  const control = new SoloistControl();
+  const hub = new SoloistHub(`ws://127.0.0.1:${port}`, control);
+  void hub.run();
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(connections, 0, "parked (waiting): no dial");
+
+  control.setState("running");
+  for (let i = 0; i < 200 && !hub.upstreamConnected; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.equal(hub.upstreamConnected, true, "running: dials promptly on state change");
+
+  hub.stop();
+  upstream.close();
+});
 
 await test("Hub getters + buildProxyStatus summary", async () => {
   const RAWTOK = "CONTROL-SECRET-RAW";
@@ -1238,7 +1335,7 @@ await test("AppControl.stop() clears the interval, terminates subscribers, and a
 await test("makeServer App-Control lifecycle: logout-close + close teardown", async () => {
   const prevDocker = isDockerMode();
   setDockerMode(false); // no PipeWire fan-out / sink polling under test
-  const dir = mkdtempSync(join(tmpdir(), "lifecycle-"));
+  const dir = tempDir("lifecycle-");
   const cfgPath = join(dir, "config.yaml");
   const cfg = defaultConfig();
   cfg.web.username = "admin";
@@ -1281,10 +1378,40 @@ await test("makeServer App-Control lifecycle: logout-close + close teardown", as
 });
 
 
+await test("makeServer / upgrade gate: 401 without auth, 403 for a cross-origin cookie", async () => {
+  const prevDocker = isDockerMode();
+  setDockerMode(false);
+  const dir = tempDir("gate-");
+  const cfgPath = join(dir, "config.yaml");
+  const cfg = defaultConfig();
+  cfg.web.username = "admin";
+  cfg.web.password = "pw";
+  cfg.web.sessionSecret = AUTH_SECRET;
+  cfg.soloistWs = "127.0.0.1:1";
+  const { running, port } = await makeServerOnFreePort(cfg, cfgPath);
+  const cookie = `${SESSION_COOKIE}=${signSession("admin", AUTH_SECRET, "pw")}`;
+  const status = async (headers: Record<string, string>): Promise<number> => {
+    const c = new WebSocket(`ws://127.0.0.1:${port}/`, { headers });
+    c.on("error", () => {});
+    const [, res] = (await Promise.race([once(c, "unexpected-response"), once(c, "open").then(() => [null, { statusCode: 101 }])])) as [unknown, { statusCode: number }];
+    c.terminate();
+    return res.statusCode;
+  };
+  try {
+    assert.equal(await status({}), 401, "no token, no cookie -> 401");
+    assert.equal(await status({ cookie, origin: "http://evil.example" }), 403, "session cookie from another origin -> 403");
+    assert.equal(await status({ cookie, origin: `http://127.0.0.1:${port}` }), 101, "same-origin session cookie upgrades");
+  } finally {
+    await running.close();
+    setDockerMode(prevDocker);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 await test("integration purity: diagnostics stay on App-Control; genuine frames reach / and Relay verbatim", async () => {
   const prevDocker = isDockerMode();
   setDockerMode(false);
-  const dir = mkdtempSync(join(tmpdir(), "purity-"));
+  const dir = tempDir("purity-");
   const cfgPath = join(dir, "config.yaml");
 
   const upstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
@@ -1610,7 +1737,7 @@ await test("SoloistControl pending vs applied", async () => {
 
 
 await test("supervise restart aborts current run", async () => {
-  const sdir = mkdtempSync(join(tmpdir(), "sup-"));
+  const sdir = tempDir("sup-");
   const logf = join(sdir, "runs.log");
   const script = join(sdir, "fake-soloist.sh");
   writeFileSync(script, `#!/bin/sh\necho run >> ${logf}\nexec sleep 30\n`, { mode: 0o755 });
@@ -1645,7 +1772,7 @@ await test("supervise restart aborts current run", async () => {
 
 
 await test("supervise state machine transitions + readiness gate", async () => {
-  const sdir = mkdtempSync(join(tmpdir(), "sup-state-"));
+  const sdir = tempDir("sup-state-");
   // First build "expires" (exit 10 -> re-acquire), second "crashes" (exit 1 -> backoff);
   // each runs ~200ms so the running phase is observable before it exits.
   const expires = join(sdir, "expires.sh");
@@ -1657,8 +1784,7 @@ await test("supervise state machine transitions + readiness gate", async () => {
   const stCfg = { soloist: { deviceName: "d", apiKey: "k", dataDir: sdir, extraArgs: [], pipewireDevice: "" }, soloistWs: "127.0.0.1:1", web: { username: "", password: "", sessionSecret: "" } } as unknown as Config;
   const control = new SoloistControl();
   const history: string[] = [];
-  const record = control.setState.bind(control);
-  control.setState = (s) => { history.push(s); record(s); };
+  control.onStateChange(() => history.push(control.soloistStatus().state));
   const ac = new AbortController();
   const waitState = async (s: string) => { for (let i = 0; i < 300 && control.soloistStatus().state !== s; i++) await new Promise((r) => setTimeout(r, 20)); };
 
@@ -1693,7 +1819,7 @@ await test("acquire: a hung download times out instead of wedging", async () => 
   const server = createServer(() => { /* accept the socket, never send a response */ });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
   const port = (server.address() as { port: number }).port;
-  const cache = mkdtempSync(join(tmpdir(), "acq-timeout-"));
+  const cache = tempDir("acq-timeout-");
   const prevBase = process.env.SOLOIST_DOWNLOAD_BASE;
   const prevTimeout = process.env.SOLOIST_DOWNLOAD_TIMEOUT_MS;
   process.env.SOLOIST_DOWNLOAD_BASE = `http://127.0.0.1:${port}`;
@@ -1719,7 +1845,7 @@ await test("acquire: a caller signal aborts an in-flight download", async () => 
   const server = createServer(() => { /* never responds */ });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
   const port = (server.address() as { port: number }).port;
-  const cache = mkdtempSync(join(tmpdir(), "acq-abort-"));
+  const cache = tempDir("acq-abort-");
   const prevBase = process.env.SOLOIST_DOWNLOAD_BASE;
   const prevTimeout = process.env.SOLOIST_DOWNLOAD_TIMEOUT_MS;
   process.env.SOLOIST_DOWNLOAD_BASE = `http://127.0.0.1:${port}`;
@@ -1749,7 +1875,7 @@ await test("acquire: a caller signal aborts an in-flight download", async () => 
 // wedge startup. It now retries with backoff — one failure then success recovers to `running`
 // without ending the loop.
 await test("supervise retries a transient boot acquire failure instead of wedging", async () => {
-  const sdir = mkdtempSync(join(tmpdir(), "sup-acq-"));
+  const sdir = tempDir("sup-acq-");
   const script = join(sdir, "sleep.sh");
   writeFileSync(script, `#!/bin/sh\nexec sleep 30\n`, { mode: 0o755 });
   const cfg = { soloist: { deviceName: "d", apiKey: "k", dataDir: sdir, extraArgs: [], pipewireDevice: "" }, soloistWs: "127.0.0.1:1", web: { username: "u", password: "p", sessionSecret: "" } } as unknown as Config;
@@ -1777,7 +1903,7 @@ await test("supervise retries a transient boot acquire failure instead of wedgin
 
 
 await test("supervise abort during boot-acquire backoff shuts down promptly", async () => {
-  const sdir = mkdtempSync(join(tmpdir(), "sup-acq-abort-"));
+  const sdir = tempDir("sup-acq-abort-");
   const cfg = { soloist: { deviceName: "d", apiKey: "k", dataDir: sdir, extraArgs: [], pipewireDevice: "" }, soloistWs: "127.0.0.1:1", web: { username: "u", password: "p", sessionSecret: "" } } as unknown as Config;
   const control = new SoloistControl();
   const ac = new AbortController();
@@ -1800,7 +1926,7 @@ await test("supervise abort during boot-acquire backoff shuts down promptly", as
 
 
 await test("supervise restart wakes crash-loop backoff early", async () => {
-  const sdir = mkdtempSync(join(tmpdir(), "sup-wake-"));
+  const sdir = tempDir("sup-wake-");
   const logf = join(sdir, "runs.log");
   const script = join(sdir, "crash.sh");
   writeFileSync(script, `#!/bin/sh\necho run >> ${logf}\nexit 1\n`, { mode: 0o755 });
@@ -2122,6 +2248,29 @@ await test("reconcileOutputs delay lifecycle + no-delay parity", async () => {
 });
 
 
+await test("outputsNeedRelink + delay child respawns after it exits", async () => {
+  const cfg = dcfg(false, ["alsa_x"]);
+  const graph = (inputs: string, links: string): Runner => async (_cmd, args) => (args[0] === "-i" ? inputs : args.includes("-l") ? links : "");
+  const linkedToX = "soloist-sink:monitor_FL\n  |-> alsa_x:playback_FL\n";
+  assert.equal(await outputsNeedRelink(cfg, graph("alsa_x:playback_FL\n", "")), true, "present but unlinked -> relink");
+  assert.equal(await outputsNeedRelink(cfg, graph("alsa_x:playback_FL\n", linkedToX)), false, "present and linked -> no relink");
+  assert.equal(await outputsNeedRelink(cfg, graph("", "")), false, "absent output -> no relink (no poll-loop churn)");
+
+  const exits: (() => void)[] = [];
+  let spawned = 0;
+  const spawner: Spawner = () => {
+    spawned++;
+    return { kill() {}, on(ev: string, fn: () => void) { if (ev === "exit") exits.push(fn); } } as unknown as ReturnType<Spawner>;
+  };
+  const run = graph("input.soloist-delay-alsa-y:input_FL\nalsa_y:playback_FL\n", "");
+  const delayedCfg = { audio: { snapcast: false, outputs: ["alsa_y"], outputDelays: { alsa_y: 100 }, externalSnapcast: { mode: "off" } }, streamName: "Spotify" } as unknown as Config;
+  await reconcileOutputs(delayedCfg, { run, spawn: spawner, retries: 1, intervalMs: 0 });
+  exits.at(-1)!();
+  await reconcileOutputs(delayedCfg, { run, spawn: spawner, retries: 1, intervalMs: 0 });
+  assert.equal(spawned, 2, "a dead delay child is respawned on the next reconcile");
+  await reconcileOutputs({ ...delayedCfg, audio: { ...delayedCfg.audio, outputDelays: {} } } as Config, { run, spawn: spawner, retries: 1, intervalMs: 0 });
+});
+
 const entity = (name: string, artist: string, album: string, durationMs: number, covers: { url: string; size: string }[] = []) => ({
   uri: "spotify:track:x",
   entity_type: "track",
@@ -2215,10 +2364,10 @@ await test("hashPassword / verifyPassword", async () => {
   assert.ok(isPasswordHashed(h) && h.startsWith("scrypt$"), "hashPassword: scrypt-encoded");
   assert.equal(h.includes("hunter2"), false, "hashPassword: plaintext not present");
   assert.notEqual(hashPassword("hunter2"), h, "hashPassword: per-call random salt");
-  assert.ok(verifyPassword("hunter2", h), "verifyPassword: correct password");
-  assert.equal(verifyPassword("wrong", h), false, "verifyPassword: wrong password");
-  assert.ok(verifyPassword("legacy", "legacy"), "verifyPassword: legacy cleartext accepted");
-  assert.equal(verifyPassword("legacy", "other"), false, "verifyPassword: legacy cleartext mismatch");
+  assert.ok(await verifyPassword("hunter2", h), "verifyPassword: correct password");
+  assert.equal(await verifyPassword("wrong", h), false, "verifyPassword: wrong password");
+  assert.ok(await verifyPassword("legacy", "legacy"), "verifyPassword: legacy cleartext accepted");
+  assert.equal(await verifyPassword("legacy", "other"), false, "verifyPassword: legacy cleartext mismatch");
 });
 
 
@@ -2258,7 +2407,7 @@ await test("first-run setup gating", async () => {
   const call = (r: ReturnType<typeof fakeRes>, req: IncomingMessage, cfg: Config) =>
     handleWebRequest(req, r as unknown as ServerResponse, cfg, setupCfgPath);
 
-  const setupDir = mkdtempSync(join(tmpdir(), "setup-"));
+  const setupDir = tempDir("setup-");
   const setupCfgPath = join(setupDir, "config.yaml");
   const scfg = defaultConfig();
   scfg.web.sessionSecret = "sess"; // as ensureSecrets would have minted on boot
@@ -2312,11 +2461,11 @@ await test("first-run setup gating", async () => {
   assert.equal(verifySession(String(setupCookie).slice(SESSION_COOKIE.length + 1).split(";")[0], scfg.web.sessionSecret, scfg.web.password), "dj", "setup session cookie authenticates the new user");
   assert.equal(scfg.web.username, "dj", "username set from setup");
   assert.ok(isPasswordHashed(scfg.web.password), "setup password stored hashed, not cleartext");
-  assert.ok(verifyPassword("hunter2x", scfg.web.password), "setup password verifies");
+  assert.ok(await verifyPassword("hunter2x", scfg.web.password), "setup password verifies");
   assert.equal(webConfigured(scfg), true, "creds now configured");
   const savedSetup = loadConfig(setupCfgPath);
   assert.equal(savedSetup.web.username, "dj", "setup creds persisted to file");
-  assert.ok(isPasswordHashed(savedSetup.web.password) && verifyPassword("hunter2x", savedSetup.web.password), "setup password persisted hashed + verifies");
+  assert.ok(isPasswordHashed(savedSetup.web.password) && await verifyPassword("hunter2x", savedSetup.web.password), "setup password persisted hashed + verifies");
   assert.equal(soloistReady(scfg), false, "creds only: soloist still not ready (args absent)");
 
   r = fakeRes();
@@ -2331,7 +2480,7 @@ await test("first-run setup gating", async () => {
 
 
 await test("setup TOCTOU guard", async () => {
-  const raceDir = mkdtempSync(join(tmpdir(), "setup-race-"));
+  const raceDir = tempDir("setup-race-");
   const racePath = join(raceDir, "config.yaml");
   const raceCfg = defaultConfig();
   raceCfg.web.sessionSecret = "sess";
@@ -2358,7 +2507,7 @@ await test("setup TOCTOU guard", async () => {
 
 
 await test("POST /login: valid creds issue a bound session cookie; bad creds rejected", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "login-"));
+  const dir = tempDir("login-");
   const cfgPath = join(dir, "config.yaml");
   const cfg = defaultConfig();
   cfg.web.username = "dj";
@@ -2390,12 +2539,18 @@ await test("POST /login: valid creds issue a bound session cookie; bad creds rej
   await r.done;
   assert.equal(r.headers.location, "/login?error=1", "wrong username -> /login?error=1");
   assert.equal(r.headers["set-cookie"], undefined, "wrong username issues no cookie");
+
+  for (let i = 0; i < 3; i++) { r = login("username=dj&password=wrong"); await r.done; }
+  r = login("username=dj&password=hunter2x");
+  await r.done;
+  assert.equal(r.statusCode, 429, "5 failures lock the IP out, even for the right password");
+  assert.equal(r.headers["set-cookie"], undefined, "locked-out login issues no cookie");
   rmSync(dir, { recursive: true, force: true });
 });
 
 
 await test("HTTP /api/* routes: authed PUT /api/config persists, unauth 401, GET /api/secret", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "api-"));
+  const dir = tempDir("api-");
   const cfgPath = join(dir, "config.yaml");
   const cfg = defaultConfig();
   cfg.web.username = "dj";
@@ -2550,7 +2705,7 @@ await webTest("useAppControl reconnect & heartbeat age-out", appctl, async () =>
   a.dispose();
   a.dispose(); // idempotent: a second call is a no-op, not a throw
   sockets[0].close(); // schedules a reconnect (backoffBaseMs 1ms)
-  await new Promise((r) => setTimeout(r, 15));
+  for (let i = 0; i < 400 && sockets.length < 2; i++) await new Promise((r) => setTimeout(r, 5));
   assert.equal(sockets.length, 2, "reconnect opened a fresh socket");
   sockets[1].open();
   assert.deepEqual(
@@ -2955,6 +3110,7 @@ await test("unhandledRejection handler surfaces detached faults", async () => {
 await new Promise((r) => setImmediate(r));
 await new Promise((r) => setImmediate(r));
 
+for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
 console.log(`\nselftest: ${passed} passed, ${failed} failed, ${skipped} skipped`);
 if (failed) process.exit(1);
 

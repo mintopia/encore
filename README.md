@@ -39,10 +39,15 @@ services:
     image: ghcr.io/mintopia/encore:latest
     network_mode: host
     restart: unless-stopped
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 95
     devices:
       - /dev/snd:/dev/snd
     volumes:
       - /run/udev:/run/udev:ro
+      - /run/dbus:/run/dbus:ro
       - ./config:/config
       - soloist-data:/data
       - soloist-cache:/cache
@@ -55,6 +60,8 @@ volumes:
 The data volume is used for Soloist's data and the cache volume hosts the download of Soloist (which isn't bundled into the docker image).
 
 `/run/udev` and `/dev/snd` are passed through to the container so it can enumerate and use ALSA audio devices in PipeWire. If you're using Snapcast, you don't need to pass those through.
+
+`/run/dbus` lets Snapserver advertise itself through the host's Avahi so Snapclients find it automatically. `SYS_NICE` and `rtprio` let PipeWire run its audio threads at realtime priority to avoid dropouts.
 
 `host` network mode is needed for Spotify to auto-discover the Soloist instance and authenticate it.
 
@@ -134,6 +141,17 @@ The Soloist licence from Spotify doesn't allow distribution of Soloist, and buil
 ### I found a bug, what should I do?
 
 If you find an issue with it, please raise it on the issue tracker so I can triage it and investigate it.
+
+## Keeping Up to Date
+
+The scheduled **Updates** workflow (`.github/workflows/updates.yml`) runs daily and goes ahead when either:
+
+- a newer Snapcast release has the trixie pipewire `.deb` for every supported architecture, or
+- the last release is at least 30 days old.
+
+Manual runs from the Actions tab always go ahead. When it runs, it bumps `SNAPCAST_VERSION` in the `Dockerfile` if needed, updates every npm dependency in the app and the docs site to its latest version (majors included), then runs the type checks, tests, docs build and a Docker image build. It opens or refreshes a single `chore/updates` PR against `develop`; if anything fails, the PR is a draft with the failure output.
+
+PRs opened with the default `GITHUB_TOKEN` don't trigger CI, so set a `RELEASE_PLEASE_TOKEN` secret (a PAT) to have checks run on them.
 
 ## AI Disclosure
 

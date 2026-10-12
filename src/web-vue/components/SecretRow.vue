@@ -82,6 +82,7 @@ async function view() {
   box-shadow: none; font: inherit; color: inherit;
 }
 .bare:focus { outline: none; box-shadow: none; }
+.box:focus-within { border-color: var(--ind); box-shadow: 0 0 0 3px var(--ind-s); }
 .bare.mono { font-family: ui-monospace, monospace; font-size: 13px; }
 .linkbtn {
   font-size: 12px; white-space: nowrap; margin-left: 12px; border: none; background: none;

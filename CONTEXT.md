@@ -28,7 +28,8 @@ with backoff and broadcasts each frame to every Downstream Client. It decodes ea
 `type` once and dispatches to registered observers (Autoplay, Webhook), and can *originate*
 frames upstream (Autoplay's `activate`/`play`). Relayed client traffic is still never
 rewritten — the Hub only reads and, for injected frames, writes traffic that is not a
-client's (ADR-0006 amending ADR-0001).
+client's (ADR-0006 amending ADR-0001). It dials only while the supervisor reports Soloist
+running, so it stays idle during first-run setup and crash-loop backoff.
 _Avoid_: Proxy (that is the auth front; the Hub is the frame core behind it).
 
 **Auth Token**:

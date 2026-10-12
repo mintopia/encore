@@ -99,13 +99,14 @@ function addOverride() {
 <style scoped>
 .col { display: flex; flex-direction: column; gap: 20px; }
 .top { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
-.grow { flex: 1; }
+.grow { flex: 1; min-width: 0; }
 .delay { flex: 0 0 auto; width: 120px; }
 .field { width: 100%; }
 .secret { max-width: 340px; }
 .ov-label { margin: 22px 0 10px; }
 .ov { display: flex; flex-direction: column; gap: 10px; max-width: 700px; }
-.ov-row { gap: 10px; }
+.ov-row { gap: 10px; flex-wrap: wrap; }
+.ov-row .grow { min-width: 180px; }
 .sel { max-width: 210px; flex: 0 0 auto; }
 .dev-hint { font-size: 11.5px; color: var(--faint); margin-top: 4px; }
 </style>

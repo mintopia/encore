@@ -58,6 +58,9 @@ function replaceAll<T>(buf: T[], next: T[]): void {
   buf.splice(0, buf.length, ...next);
 }
 
+// Receipt time per frame, stamped as it arrives so pages opened later show real arrival times.
+export const frameArrivedAt = new WeakMap<object, number>();
+
 export function createAppControl(opts: AppControlOptions = {}) {
   const staleMs = opts.staleMs ?? 10000;
   const frameRing = opts.frameRing ?? 200;
@@ -126,6 +129,7 @@ export function createAppControl(opts: AppControlOptions = {}) {
       return;
     }
     if (stream === "frame") {
+      if (data && typeof data === "object") frameArrivedAt.set(data, Date.now());
       pushRing(masterFrames, data as Frame, frameRing);
       for (const sub of subs) if (sub.streams.has("frame")) pushRing(sub.frames, data as Frame, frameRing);
     } else if (stream === "clients") {

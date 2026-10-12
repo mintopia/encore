@@ -12,22 +12,20 @@ interface PlaybackState {
   shuffle: boolean;
   repeat: string;
   connected: boolean;
-  lastFrameAt: number;
 }
 
 const state = reactive<PlaybackState>({
   track: null, queue: [], playing: false,
   anchorMs: 0, anchorAt: 0, speed: 0,
   volume: null, shuffle: false, repeat: "off",
-  connected: false, lastFrameAt: 0,
+  connected: false,
 });
 
 // A 500ms tick drives interpolated position without re-anchoring on every read.
 const positionMs = ref(0);
 
-const STALE_MS = 5000;
 function isStale(): boolean {
-  return !state.connected && state.lastFrameAt > 0 && Date.now() - state.lastFrameAt > STALE_MS;
+  return !state.connected && state.track !== null;
 }
 
 function onFrame(msg: any) {
@@ -43,7 +41,6 @@ function onFrame(msg: any) {
     if (typeof msg.options.shuffle === "boolean") state.shuffle = msg.options.shuffle;
     if (typeof msg.options.repeat === "string") state.repeat = msg.options.repeat;
   }
-  state.lastFrameAt = Date.now();
 }
 
 let ws: WebSocket | null = null;
@@ -57,6 +54,10 @@ function connect() {
   ws.onopen = () => { state.connected = true; backoffMs = 1000; };
   ws.onclose = () => {
     state.connected = false;
+    // Freeze where playback had got to; the replayed state on reconnect re-anchors it.
+    state.anchorMs = nowMs(state);
+    state.anchorAt = Date.now();
+    state.speed = 0;
     setTimeout(connect, backoffMs);
     backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS);
   };
@@ -75,7 +76,7 @@ function start() {
   started = true;
   connect();
   setInterval(() => {
-    positionMs.value = isStale() ? state.anchorMs : nowMs(state);
+    positionMs.value = nowMs(state);
   }, 500);
 }
 

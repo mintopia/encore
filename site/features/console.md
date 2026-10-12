@@ -25,8 +25,11 @@ queue. A mini-player follows you around the other pages.
 Secrets are hidden after saving. Each shows whether it's set and has a Replace action. The
 Soloist API key, auth token and relay credentials also have a View button.
 
-To clear a secret, choose **Replace**, leave the field empty and save. The console password
-and the WebSocket auth token can't be cleared, only replaced.
+To clear a secret, choose **Replace**, leave the field empty and save. The console password,
+the WebSocket auth token and the read-only token can't be cleared, only replaced. A new
+password needs at least 8 characters, and the username can't be blank.
+
+After 5 wrong passwords in a row, the login page refuses that device for 30 seconds.
 
 <img class="shot" src="/screenshots/settings-audio.png" alt="Audio Outputs settings listing Snapcast and hardware sinks">
 

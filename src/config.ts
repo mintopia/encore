@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { dirname, basename, join } from "node:path";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import { parse as parseYaml, parseDocument, Document } from "yaml";
 import { safeStrEqual } from "./util.js";
 
@@ -24,6 +25,7 @@ export const MAX_OUTPUT_DELAY_MS = 5000;
 export class ConfigError extends Error {}
 
 const SCRYPT_KEYLEN = 64;
+export const MIN_PASSWORD_LENGTH = 8;
 
 export function hashPassword(plain: string): string {
   const salt = randomBytes(16);
@@ -34,14 +36,16 @@ export function isPasswordHashed(stored: string): boolean {
   return stored.startsWith("scrypt$");
 }
 
-export function verifyPassword(plain: string, stored: string): boolean {
+const scryptAsync = promisify(scrypt) as (plain: string, salt: Buffer, keylen: number) => Promise<Buffer>;
+
+export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
   if (isPasswordHashed(stored)) {
     const [, saltHex, keyHex] = stored.split("$");
     if (!saltHex || !keyHex) return false;
     let expected: Buffer, got: Buffer;
     try {
       expected = Buffer.from(keyHex, "hex");
-      got = scryptSync(plain, Buffer.from(saltHex, "hex"), expected.length);
+      got = await scryptAsync(plain, Buffer.from(saltHex, "hex"), expected.length);
     } catch {
       return false;
     }
@@ -344,6 +348,11 @@ function parseConfig(raw: unknown): Config {
   if (typeof outputDelaysRaw !== "object" || Array.isArray(outputDelaysRaw)) {
     throw new ConfigError("audio.output_delays must be a mapping");
   }
+  // Snapserver parses stream_name out of a pipewire:// query string.
+  if (/[&#?=%+]/.test(String(snapcast.stream_name ?? ""))) {
+    throw new ConfigError("snapcast.stream_name cannot contain & # ? = % or +");
+  }
+
   const outputDelays: Record<string, number> = {};
   for (const [k, v] of Object.entries(outputDelaysRaw)) {
     outputDelays[k] = Math.min(MAX_OUTPUT_DELAY_MS, Math.max(0, coerceInt(v, 0)));
@@ -542,7 +551,7 @@ export const SECRETS: { section: string; key: string; label: string }[] = [
 
 // Secrets an empty PUT string must not clear: an empty web password reopens the
 // unauthenticated Setup Page, and the session secret / auth token are regenerated at boot.
-const UNCLEARABLE_SECRETS = new Set(["web.password", "web.sessionSecret", "proxy.token"]);
+const UNCLEARABLE_SECRETS = new Set(["web.password", "web.sessionSecret", "proxy.token", "proxy.readonlyToken"]);
 
 // Structural fields the Landing Page shows read-only (lockout / footguns, ADR-0010).
 // PUT can never change them — they stay hand-edit-only.
@@ -613,6 +622,9 @@ export function applyApiConfig(current: Config, body: unknown): Config {
   }
   for (const { section, key } of SECRETS) {
     const v = b[section]?.[key];
+    if (section === "web" && key === "password" && typeof v === "string" && v !== "" && v.length < MIN_PASSWORD_LENGTH) {
+      throw new ConfigError(`web.password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+    }
     if (typeof v === "string" && (v !== "" || !UNCLEARABLE_SECRETS.has(`${section}.${key}`))) {
       // web.password arrives as plaintext (Replace flow) — hash before it persists.
       next[section][key] = section === "web" && key === "password" && v !== "" ? hashPassword(v) : v;
@@ -621,7 +633,12 @@ export function applyApiConfig(current: Config, body: unknown): Config {
     }
   }
   for (const [s, k] of LOCKED_PATHS) next[s][k] = (current as any)[s][k];
-  return normalizeConfig(next as Config);
+  const result = normalizeConfig(next as Config);
+  // An empty username makes webConfigured() false, which reopens the unauthenticated Setup Page.
+  if (current.web.username !== "" && result.web.username === "") {
+    throw new ConfigError("web.username cannot be empty");
+  }
+  return result;
 }
 
 export function ensureSecrets(path: string, config: Config): boolean {

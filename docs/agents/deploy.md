@@ -19,6 +19,8 @@ SSH="sshpass -e ssh -o StrictHostKeyChecking=no root@<TEST_HOST from .hardware>"
 - `docker-compose.yml` — the deploy compose. `image: musicparty-soloist:test`,
   `network_mode: host` (required: Spotify Connect login is mDNS and does not cross
   Docker's bridge). Do not edit to add a `build:` — the build is a separate step.
+  It should match the repo compose's runtime options: `cap_add: [SYS_NICE]`,
+  `ulimits: rtprio: 95`, and the `/run/udev` and `/run/dbus` read-only mounts.
 - `build/` — a **plain source copy** (not a git checkout) used as the Docker build
   context. This is what you sync into.
 - `config/`, `soloist-data/`, `soloist-cache/` — persistent bind mounts (config.yaml,
