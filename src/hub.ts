@@ -43,6 +43,11 @@ export function decodeFrame(data: RawData, isBinary: boolean): UpstreamFrame | n
   return { type, message: message as Record<string, unknown>, raw };
 }
 
+export interface SoloistRunState {
+  isRunning(): boolean;
+  onStateChange(fn: () => void): void;
+}
+
 export class SoloistHub {
   // Resolved live on each (re)connect so a soloist_ws change applies after a
   // Soloist restart without restarting the Proxy.
@@ -55,13 +60,12 @@ export class SoloistHub {
   private ready: { promise: Promise<void>; resolve: () => void };
   private wake = deferred();
   private stopped = false;
-  private canDial: () => boolean;
+  private soloist: SoloistRunState | undefined;
 
-  // canDial gates connection attempts (e.g. while Soloist is parked or crash-looping);
-  // call retry() when it may have flipped to true.
-  constructor(url: string | (() => string), canDial: () => boolean = () => true) {
+  constructor(url: string | (() => string), soloist?: SoloistRunState) {
     this.urlFn = typeof url === "function" ? url : () => url;
-    this.canDial = canDial;
+    this.soloist = soloist;
+    soloist?.onStateChange(() => this.signalWake());
     this.ready = deferred();
   }
 
@@ -178,10 +182,6 @@ export class SoloistHub {
     this.wake = deferred();
   }
 
-  retry(): void {
-    this.signalWake();
-  }
-
   stop(): void {
     this.stopped = true;
     this.conn?.close();
@@ -200,7 +200,7 @@ export class SoloistHub {
       backoffMax: HUB_BACKOFF_MAX,
       isStopped: () => this.stopped,
       getWake: () => this.wake,
-      shouldDial: () => this.canDial(),
+      shouldDial: () => this.soloist?.isRunning() ?? true,
       connect: () => {
         currentUrl = this.urlFn();
         return new WebSocket(currentUrl);

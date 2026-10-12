@@ -43,7 +43,7 @@ export class SoloistControl {
   private iter: AbortController | null = null;
   private state: SoloistState = "waiting";
   private wake = deferred();
-  private stateListeners = new Set<(state: SoloistState) => void>();
+  private stateListeners = new Set<() => void>();
 
   bindIteration(ac: AbortController): void {
     this.iter = ac;
@@ -71,11 +71,15 @@ export class SoloistControl {
 
   setState(state: SoloistState): void {
     this.state = state;
-    for (const fn of this.stateListeners) fn(state);
+    for (const fn of this.stateListeners) fn();
   }
 
-  onStateChange(fn: (state: SoloistState) => void): void {
+  onStateChange(fn: () => void): void {
     this.stateListeners.add(fn);
+  }
+
+  isRunning(): boolean {
+    return this.state === "running";
   }
 
   soloistStatus(): { state: SoloistState } {

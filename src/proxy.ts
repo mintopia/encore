@@ -281,13 +281,7 @@ function handleUpgrade(
 
 export function makeServer(cfg: Config, configPath: string, control?: SoloistControl): Promise<RunningProxy> {
   const { host, port } = effectiveListen(cfg.proxy.listen);
-  // Only dial Soloist while the supervisor has it running, so first-run setup and
-  // crash-loop backoff don't flood the log with connection-refused errors.
-  const hub = new SoloistHub(
-    () => `ws://${cfg.soloistWs}`,
-    control ? () => control.soloistStatus().state === "running" : undefined,
-  );
-  control?.onStateChange(() => hub.retry());
+  const hub = new SoloistHub(() => `ws://${cfg.soloistWs}`, control);
   attachAutoplay(hub, cfg);
   const history = attachWebhooks(hub, cfg);
   const relay = new SoloistRelay(hub, cfg);

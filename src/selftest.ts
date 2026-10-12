@@ -1004,8 +1004,7 @@ await test("Hub holds off dialing until Soloist is running", async () => {
   upstream.on("connection", () => connections++);
 
   const control = new SoloistControl();
-  const hub = new SoloistHub(`ws://127.0.0.1:${port}`, () => control.soloistStatus().state === "running");
-  control.onStateChange(() => hub.retry());
+  const hub = new SoloistHub(`ws://127.0.0.1:${port}`, control);
   void hub.run();
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(connections, 0, "parked (waiting): no dial");
