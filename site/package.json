@@ -10,5 +10,8 @@
   "devDependencies": {
     "@phosphor-icons/vue": "^2.2.1",
     "vitepress": "1.6.4"
+  },
+  "overrides": {
+    "vite": "^6.4.4"
   }
 }
