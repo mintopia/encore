@@ -42,7 +42,7 @@ function onResize() {
 }
 
 onMounted(() => { animate(); window.addEventListener("resize", onResize); });
-onBeforeUnmount(() => window.removeEventListener("resize", onResize));
+onBeforeUnmount(() => { clearTimeout(resizeTimer); window.removeEventListener("resize", onResize); });
 </script>
 
 <template>

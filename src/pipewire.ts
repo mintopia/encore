@@ -268,8 +268,28 @@ async function ensureDelayChild(delays: Record<string, number>, tokens: Map<stri
   const spawnFn = opts.spawn ?? defaultSpawn;
   const child = spawnFn("pipewire", ["-c", confPath]);
   child.on("error", (err) => log.error("delay filter-chain spawn failed: %s", (err as Error).message));
+  child.on("exit", () => {
+    if (delayChild !== child) return;
+    log.warn("delay filter-chain exited; respawning on next reconcile");
+    delayChild = null;
+    delayChildKey = "";
+  });
   delayChild = child;
   delayChildKey = key;
+}
+
+// True when an enabled output's node exists but isn't fed from soloist-sink: PipeWire
+// restarted, a DAC was plugged in late, or the delay filter died. Absent nodes don't
+// count, so an unplugged output doesn't trigger a reconcile on every poll.
+export async function outputsNeedRelink(cfg: Config, run: Runner = defaultRun): Promise<boolean> {
+  const delays = desiredDelays(cfg);
+  const tokens = buildDelayTokens(delays);
+  const [inputs, links] = await Promise.all([run("pw-link", ["-i"]), run("pw-link", ["-o", "-l"])]);
+  const linked = new Set(parseMonitorTargets(links));
+  return desiredTargets(cfg).some((node) => {
+    const target = delays[node] ? `input.${DELAY_PREFIX}${tokens.get(node)}` : node;
+    return inputs.includes(`${node}:${inputPorts(node)[0]}`) && !linked.has(target);
+  });
 }
 
 export function reconcileOutputs(cfg: Config, opts: ReconcileOptions = {}): Promise<ReconcileResult> {
@@ -373,12 +393,20 @@ export function getSinkCache(): SinkCache {
   return sinkCache;
 }
 
-// Kick one refresh immediately, then poll on an interval. Idempotent: a second call
-// is a no-op. The timer is unref'd so it never keeps the process alive on shutdown.
+// Kick one refresh immediately, then poll on an interval, relinking outputs that lost
+// their links. Idempotent: a second call is a no-op. The timer is unref'd so it never
+// keeps the process alive on shutdown.
 export function startSinkPolling(cfg: Config, intervalMs = 30_000, run: Runner = defaultRun): void {
   if (sinkPollTimer) return;
-  const tick = () => void refreshSinkCache(cfg, run).catch((e) => log.warn("sink poll failed: %s", (e as Error).message));
-  tick();
-  sinkPollTimer = setInterval(tick, intervalMs);
+  const tick = async () => {
+    try {
+      await refreshSinkCache(cfg, run);
+      if (await outputsNeedRelink(cfg, run)) await reconcileOutputs(cfg, { run, retries: 1 });
+    } catch (e) {
+      log.warn("sink poll failed: %s", (e as Error).message);
+    }
+  };
+  void tick();
+  sinkPollTimer = setInterval(() => void tick(), intervalMs);
   sinkPollTimer.unref?.();
 }

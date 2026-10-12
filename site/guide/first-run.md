@@ -7,7 +7,7 @@ With the container running, open `http://<your-pi>`.
 1. **Create your login.**
 
    A fresh install shows a setup page. Choose a username and password for the web console.
-   The password is stored hashed.
+   The password needs at least 8 characters and is stored hashed.
 
    <img class="shot" src="/screenshots/setup.png" alt="The first-run setup page asking for a username and password">
 

@@ -17,6 +17,9 @@ export interface ReconnectLoopOptions {
   onError(err: Error): void;
   onSettled(): void;
   onReconnectWait?(backoffSeconds: number): void;
+  // Ping this often and drop the socket if the previous ping got no pong, so a NAT
+  // that silently dropped an idle connection is noticed.
+  heartbeatMs?: number;
 }
 
 export async function reconnectLoop(opts: ReconnectLoopOptions): Promise<void> {
@@ -29,13 +32,25 @@ export async function reconnectLoop(opts: ReconnectLoopOptions): Promise<void> {
     try {
       await new Promise<void>((resolve, reject) => {
         const conn = opts.connect();
+        let heartbeat: ReturnType<typeof setInterval> | undefined;
         conn.on("open", () => {
           opts.onOpen(conn);
           backoff = opts.backoffBase;
+          if (!opts.heartbeatMs) return;
+          let alive = true;
+          conn.on("pong", () => (alive = true));
+          heartbeat = setInterval(() => {
+            if (!alive) return conn.terminate();
+            alive = false;
+            conn.ping();
+          }, opts.heartbeatMs);
         });
         conn.on("message", (data, isBinary) => opts.onMessage(data, isBinary));
         conn.on("error", (err) => reject(err));
-        conn.on("close", () => resolve());
+        conn.on("close", () => {
+          clearInterval(heartbeat);
+          resolve();
+        });
       });
     } catch (err) {
       opts.onError(err as Error);

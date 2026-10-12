@@ -11,6 +11,7 @@ const log = makeLog("relay");
 
 const RELAY_BACKOFF_BASE = 0.5;
 const RELAY_BACKOFF_MAX = 30.0;
+const RELAY_HEARTBEAT_MS = 30_000;
 
 export type { RelayStatus } from "./wire-contract.js";
 
@@ -174,6 +175,7 @@ export class SoloistRelay {
     await reconnectLoop({
       backoffBase: RELAY_BACKOFF_BASE,
       backoffMax: RELAY_BACKOFF_MAX,
+      heartbeatMs: RELAY_HEARTBEAT_MS,
       isStopped: () => this.stopped,
       getWake: () => this.wake,
       shouldDial: () => {

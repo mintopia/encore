@@ -22,7 +22,7 @@ defineProps<{ title: string }>();
 
 <style scoped>
 .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
-.col { width: 400px; margin: auto; }
+.col { width: 100%; max-width: 400px; margin: auto; }
 .head { text-align: center; margin-bottom: 24px; }
 .mark {
   width: 48px; height: 48px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center;

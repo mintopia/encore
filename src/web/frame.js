@@ -1,5 +1,4 @@
-// Readers for the Soloist wire format. src/web-vue/lib/wire.ts is a typed port of
-// this module — keep the two in sync when the Soloist frame shape changes.
+// Readers for the Soloist wire format.
 
 // A Soloist Entity's decorations -> flat track (Soloist WebSocket API): title =
 // identity.name, artists = creators[].entity.identity.name, album =

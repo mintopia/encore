@@ -48,6 +48,16 @@ const refreshedLabel = computed(() =>
   refreshedAt.value ? `Updated ${new Date(refreshedAt.value).toLocaleTimeString()}` : "",
 );
 
+// Switched-on outputs PipeWire doesn't report (e.g. an unplugged DAC) still get a row,
+// so they can be switched off without editing the Config File.
+const rows = computed<PwSink[]>(() => {
+  const seen = new Set(sinks.value.map((s) => s.name));
+  const missing = c.audio.outputs
+    .filter((n) => n !== SNAPCAST_KEY && !seen.has(n))
+    .map((n) => ({ name: n, description: `${n} (not detected)` }));
+  return [...sinks.value, ...missing];
+});
+
 const isSnap = (s: PwSink) => s.name === SNAPCAST_KEY;
 const isOn = (s: PwSink) => (isSnap(s) ? c.audio.snapcast : c.audio.outputs.includes(s.name));
 
@@ -81,8 +91,8 @@ function setDelay(name: string, v: string) {
       </button>
     </template>
 
-    <div v-if="loaded && sinks.length" class="list">
-      <div v-for="s in sinks" :key="s.name" class="out" :class="isOn(s) ? 'on' : 'off'">
+    <div v-if="loaded && rows.length" class="list">
+      <div v-for="s in rows" :key="s.name" class="out" :class="isOn(s) ? 'on' : 'off'">
         <div class="out-head">
           <div class="tile">
             <PhBroadcast v-if="isSnap(s)" :size="19" weight="fill" />
@@ -133,7 +143,7 @@ function setDelay(name: string, v: string) {
   display: flex; align-items: center; justify-content: center;
   background: var(--line); color: var(--faint);
 }
-.out.on .tile { background: var(--ind); color: #fff; }
+.out.on .tile { background: var(--ind); color: var(--on-ind); }
 
 .meta { flex: 1; min-width: 0; }
 .name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
