@@ -67,10 +67,15 @@ a 64-bit OS, so they won't work. Every other Raspberry Pi is fine.
        image: ghcr.io/mintopia/encore:latest
        network_mode: host
        restart: unless-stopped
+       cap_add:
+         - SYS_NICE
+       ulimits:
+         rtprio: 95
        devices:
          - /dev/snd:/dev/snd
        volumes:
          - /run/udev:/run/udev:ro
+         - /run/dbus:/run/dbus:ro
          - ./config:/config
          - soloist-data:/data
          - soloist-cache:/cache
@@ -102,7 +107,9 @@ a 64-bit OS, so they won't work. Every other Raspberry Pi is fine.
 |---|---|
 | `network_mode: host` | **Required.** Spotify Connect finds the device with mDNS, which doesn't cross Docker's bridge network. Host mode also lets Snapcast clients reach the board. |
 | `/dev/snd` | Passes the board's sound cards into the container so you can [play through them](/audio/outputs). Not needed if you only use Snapcast. |
+| `cap_add: SYS_NICE`, `ulimits: rtprio` | Lets the audio threads run at realtime priority, which guards against dropouts when the board is busy. |
 | `/run/udev` | Lets the container's PipeWire discover those sound cards. Harmless if absent. |
+| `/run/dbus` | Lets Snapcast advertise itself through the board's Avahi so Snapcast clients find it automatically. Harmless if absent. |
 | `./config` | Holds `config.yaml`, your settings. Created on first start. |
 | `soloist-data` | Soloist's session, including your Spotify login after pairing. |
 | `soloist-cache` | The downloaded Soloist build. |

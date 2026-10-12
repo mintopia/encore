@@ -39,10 +39,15 @@ services:
     image: ghcr.io/mintopia/encore:latest
     network_mode: host
     restart: unless-stopped
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 95
     devices:
       - /dev/snd:/dev/snd
     volumes:
       - /run/udev:/run/udev:ro
+      - /run/dbus:/run/dbus:ro
       - ./config:/config
       - soloist-data:/data
       - soloist-cache:/cache
@@ -55,6 +60,8 @@ volumes:
 The data volume is used for Soloist's data and the cache volume hosts the download of Soloist (which isn't bundled into the docker image).
 
 `/run/udev` and `/dev/snd` are passed through to the container so it can enumerate and use ALSA audio devices in PipeWire. If you're using Snapcast, you don't need to pass those through.
+
+`/run/dbus` lets Snapserver advertise itself through the host's Avahi so Snapclients find it automatically. `SYS_NICE` and `rtprio` let PipeWire run its audio threads at realtime priority to avoid dropouts.
 
 `host` network mode is needed for Spotify to auto-discover the Soloist instance and authenticate it.
 

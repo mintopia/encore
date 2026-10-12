@@ -19,10 +19,15 @@ services:
     image: ghcr.io/mintopia/encore:latest
     network_mode: host
     restart: unless-stopped
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 95
     devices:
       - /dev/snd:/dev/snd
     volumes:
       - /run/udev:/run/udev:ro
+      - /run/dbus:/run/dbus:ro
       - ./config:/config
       - soloist-data:/data
       - soloist-cache:/cache
