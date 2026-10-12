@@ -55,9 +55,13 @@ export class SoloistHub {
   private ready: { promise: Promise<void>; resolve: () => void };
   private wake = deferred();
   private stopped = false;
+  private canDial: () => boolean;
 
-  constructor(url: string | (() => string)) {
+  // canDial gates connection attempts (e.g. while Soloist is parked or crash-looping);
+  // call retry() when it may have flipped to true.
+  constructor(url: string | (() => string), canDial: () => boolean = () => true) {
     this.urlFn = typeof url === "function" ? url : () => url;
+    this.canDial = canDial;
     this.ready = deferred();
   }
 
@@ -174,6 +178,10 @@ export class SoloistHub {
     this.wake = deferred();
   }
 
+  retry(): void {
+    this.signalWake();
+  }
+
   stop(): void {
     this.stopped = true;
     this.conn?.close();
@@ -192,7 +200,7 @@ export class SoloistHub {
       backoffMax: HUB_BACKOFF_MAX,
       isStopped: () => this.stopped,
       getWake: () => this.wake,
-      shouldDial: () => true,
+      shouldDial: () => this.canDial(),
       connect: () => {
         currentUrl = this.urlFn();
         return new WebSocket(currentUrl);

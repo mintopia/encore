@@ -996,6 +996,28 @@ await test("Hub read-only drop + state replay, against a real in-process upstrea
 });
 
 
+await test("Hub holds off dialing until Soloist is running", async () => {
+  const upstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  await once(upstream, "listening");
+  const port = (upstream.address() as { port: number }).port;
+  let connections = 0;
+  upstream.on("connection", () => connections++);
+
+  const control = new SoloistControl();
+  const hub = new SoloistHub(`ws://127.0.0.1:${port}`, () => control.soloistStatus().state === "running");
+  control.onStateChange(() => hub.retry());
+  void hub.run();
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(connections, 0, "parked (waiting): no dial");
+
+  control.setState("running");
+  for (let i = 0; i < 200 && !hub.upstreamConnected; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.equal(hub.upstreamConnected, true, "running: dials promptly on state change");
+
+  hub.stop();
+  upstream.close();
+});
+
 await test("Hub getters + buildProxyStatus summary", async () => {
   const RAWTOK = "CONTROL-SECRET-RAW";
   const cfg = authCfg(RAWTOK, "RO-RAW");
