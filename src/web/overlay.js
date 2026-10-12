@@ -65,19 +65,23 @@ function cacheSet(key, obj) {
 }
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function retryAfterMs(r) {
+  const secs = Number(r.headers.get("Retry-After") ?? NaN);
+  return (Number.isFinite(secs) && secs >= 0 ? secs : 5) * 1000;
+}
 
 // Throws on transient failure (network / 5xx) so the caller skips caching; returns
 // null on a 404 (definitive "not found for these params"); honours 429 Retry-After.
-async function lrclibGet(qs) {
+async function lrclibGet(qs, tries = 3) {
   const r = await fetch("https://lrclib.net/api/get?" + qs, { headers: { "Lrclib-Client": LRCLIB_CLIENT } });
-  if (r.status === 429) { await wait((Number(r.headers.get("Retry-After")) || 5) * 1000); return lrclibGet(qs); }
+  if (r.status === 429 && tries > 1) { await wait(retryAfterMs(r)); return lrclibGet(qs, tries - 1); }
   if (r.status === 404) return null;
   if (!r.ok) throw new Error("lrclib get " + r.status);
   return r.json();
 }
-async function lrclibSearch(qs) {
+async function lrclibSearch(qs, tries = 3) {
   const r = await fetch("https://lrclib.net/api/search?" + qs, { headers: { "Lrclib-Client": LRCLIB_CLIENT } });
-  if (r.status === 429) { await wait((Number(r.headers.get("Retry-After")) || 5) * 1000); return lrclibSearch(qs); }
+  if (r.status === 429 && tries > 1) { await wait(retryAfterMs(r)); return lrclibSearch(qs, tries - 1); }
   if (!r.ok) throw new Error("lrclib search " + r.status);
   return r.json();
 }

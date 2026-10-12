@@ -125,16 +125,23 @@ function remountGallery() {
   }
 }
 
+// A null lookup may have been a network blip, so later frames for the same track retry it
+// quietly (a cached miss costs no request).
+let missKey: string | null = null;
+
 async function ensurePreviewLyrics() {
   const t = state.track;
   if (!t) { previewLyrics.uri = null; previewLyrics.lines = []; previewLyrics.status = "notrack"; remountPreview(); return; }
   const key = t.uri || `${t.artist}|${t.title}`;
-  if (previewLyrics.uri === key && previewLyrics.status !== "idle") return;
-  previewLyrics.uri = key; previewLyrics.lines = []; previewLyrics.status = "checking";
+  const retrying = missKey === key;
+  if (previewLyrics.uri === key && previewLyrics.status !== "idle" && !retrying) return;
+  if (!retrying) { previewLyrics.uri = key; previewLyrics.lines = []; previewLyrics.status = "checking"; }
   let lines: LyricLine[] | null = null;
   try { lines = await fetchSyncedLyrics(t); } catch { lines = null; }
   const now = state.track && (state.track.uri || `${state.track.artist}|${state.track.title}`);
   if (now !== key) return; // track changed mid-fetch
+  missKey = lines ? null : key;
+  if (retrying && !lines) return;
   previewLyrics.lines = lines || [];
   previewLyrics.status = lines && lines.length ? "available" : "none";
   remountPreview();
@@ -299,13 +306,13 @@ const numInput = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 
 .seg { display: flex; background: var(--sub); border: 1px solid var(--line2); border-radius: 11px; padding: 3px; gap: 2px; }
 .seg button { flex: 1; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: transparent; color: var(--dim); }
-.seg button.on { background: var(--card); color: var(--ind); box-shadow: var(--sh); }
+.seg button.on { background: var(--card); color: var(--link); box-shadow: var(--sh); }
 .tabs { border-radius: 11px; margin-bottom: 20px; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .field { width: 100%; }
 .rng { width: 100%; accent-color: var(--ind); }
-.ovval { color: var(--ind); }
+.ovval { color: var(--link); }
 
 .motion { display: flex; flex-direction: column; gap: 18px; }
 .fg { align-items: start; }
@@ -317,7 +324,7 @@ const numInput = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
 .tile.on { border-color: var(--ind); box-shadow: 0 0 0 2px var(--ind-s); }
 .tile .stage { height: 48px; position: relative; pointer-events: none; }
 .tile .cap { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 4px 0; text-align: center; background: var(--sub); }
-.tile.on .cap { color: var(--ind); }
+.tile.on .cap { color: var(--link); }
 
 .obs { margin-top: 20px; padding: 16px; background: var(--sub); border: 1px solid var(--line); border-radius: 12px; }
 .obs-lbl { margin: 0 0 8px; }

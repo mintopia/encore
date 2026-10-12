@@ -8,6 +8,7 @@ FROM node:24-trixie-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Bumping this means updating the pinned tarball hashes below too.
 ARG S6_OVERLAY_VERSION=3.2.0.2
 ARG TARGETARCH
 
@@ -16,14 +17,16 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends curl xz-utils ca-certificates; \
     case "${TARGETARCH:-amd64}" in \
-      amd64) S6_ARCH=x86_64 ;; \
-      arm64) S6_ARCH=aarch64 ;; \
-      arm)   S6_ARCH=arm ;; \
+      amd64) S6_ARCH=x86_64;  S6_SHA=59289456ab1761e277bd456a95e737c06b03ede99158beb24f12b165a904f478 ;; \
+      arm64) S6_ARCH=aarch64; S6_SHA=8b22a2eaca4bf0b27a43d36e65c89d2701738f628d1abd0cea5569619f66f785 ;; \
+      arm)   S6_ARCH=arm;     S6_SHA=e00b0d94f2cf1e4178c922c7b90181a619981103be635fe5fb0c9547e4193c52 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     base="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}"; \
     curl -fsSL "${base}/s6-overlay-noarch.tar.xz"      -o /tmp/s6-noarch.tar.xz; \
     curl -fsSL "${base}/s6-overlay-${S6_ARCH}.tar.xz"  -o /tmp/s6-arch.tar.xz; \
+    echo "6dbcde158a3e78b9bb141d7bcb5ccb421e563523babbe2c64470e76f4fd02dae  /tmp/s6-noarch.tar.xz" | sha256sum -c -; \
+    echo "${S6_SHA}  /tmp/s6-arch.tar.xz" | sha256sum -c -; \
     tar -C / -Jxpf /tmp/s6-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-arch.tar.xz; \
     apt-get purge -y curl xz-utils; \
@@ -51,17 +54,21 @@ COPY docker/wireplumber/82-disable-libcamera.conf /etc/wireplumber/wireplumber.c
 # install the release's *_with-pipewire .deb and assert the linkage at build time
 # (ADR-0002). apt resolves the .deb's runtime deps.
 ARG SNAPCAST_VERSION=0.35.0
+ARG SNAPSERVER_SHA256_AMD64=7e89b5813f24c55bfa5021eb7e5a4ea6978fdcc6d793333eef129ee7b5e82b1b
+ARG SNAPSERVER_SHA256_ARM64=ed92a14388efafd0bba5e3077d59d351a86ef62acb6dbd458f45e9c559ed5a1f
+ARG SNAPSERVER_SHA256_ARMHF=7f5ef8020122d4082fc6da8ec0947aa7a1f2360c43e999ccccc699a87f7f4923
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends curl ca-certificates; \
     case "${TARGETARCH:-amd64}" in \
-      amd64) SNAP_ARCH=amd64 ;; \
-      arm64) SNAP_ARCH=arm64 ;; \
-      arm)   SNAP_ARCH=armhf ;; \
+      amd64) SNAP_ARCH=amd64; SNAP_SHA=${SNAPSERVER_SHA256_AMD64} ;; \
+      arm64) SNAP_ARCH=arm64; SNAP_SHA=${SNAPSERVER_SHA256_ARM64} ;; \
+      arm)   SNAP_ARCH=armhf; SNAP_SHA=${SNAPSERVER_SHA256_ARMHF} ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     deb="snapserver_${SNAPCAST_VERSION}-1_${SNAP_ARCH}_trixie_with-pipewire.deb"; \
     curl -fsSL "https://github.com/badaix/snapcast/releases/download/v${SNAPCAST_VERSION}/${deb}" -o /tmp/snapserver.deb; \
+    echo "${SNAP_SHA}  /tmp/snapserver.deb" | sha256sum -c -; \
     apt-get install -y --no-install-recommends /tmp/snapserver.deb; \
     ldd "$(command -v snapserver)" | grep -q pipewire; \
     apt-get purge -y curl; \
@@ -98,8 +105,8 @@ VOLUME ["/config", "/data", "/cache"]
 # 80 Proxy (proxy.listen / ENCORE_PORT); 1704 Snapcast stream, 1705 Snapcast control, 1780 Snapcast web UI
 # (host networking, so these are documentation — the ports bind on the host directly).
 EXPOSE 80 1704 1705 1780
-# start-period is generous: first boot downloads the Soloist binary before the Proxy binds.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+# start-period covers the Proxy's wait-for-sink (up to ~30s) before it binds.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["node", "dist/healthcheck.js", "/config/config.yaml"]
 
 ENTRYPOINT ["/init"]

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { ConfigError, applyApiConfig, configSummary, hashPassword, isPasswordHashed, maskConfig, saveConfig, verifyPassword, type Config } from "./config.js";
+import { ConfigError, MIN_PASSWORD_LENGTH, applyApiConfig, configSummary, hashPassword, isPasswordHashed, maskConfig, saveConfig, verifyPassword, type Config } from "./config.js";
 import type { RelayStatus } from "./relay.js";
 import type { ExternalSnapcastStatus } from "./wire-contract.js";
 import type { SoloistControl } from "./supervisor.js";
@@ -192,7 +192,6 @@ async function handlePipewireSinks(req: IncomingMessage, res: ServerResponse, cf
 const setupClaimed = new Set<string>();
 
 // The client mirrors this; the server is the authority since form JS can be bypassed.
-export const MIN_PASSWORD_LENGTH = 8;
 
 // Runs only while web creds are unset (gated in handleWebRequest), so it never
 // overwrites live creds.
@@ -244,6 +243,10 @@ async function handleSetup(
   redirect(res, "/");
 }
 
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_LOCKOUT_MS = 30_000;
+const loginFailures = new Map<string, { count: number; lockedUntil: number }>();
+
 async function handleLogin(req: IncomingMessage, res: ServerResponse, cfg: Config, configPath: string): Promise<void> {
   let body: string;
   try {
@@ -252,11 +255,17 @@ async function handleLogin(req: IncomingMessage, res: ServerResponse, cfg: Confi
     res.writeHead(413).end("Payload too large\n");
     return;
   }
+  const ip = req.socket.remoteAddress ?? "";
+  if ((loginFailures.get(ip)?.lockedUntil ?? 0) > Date.now()) {
+    res.writeHead(429, { "Content-Type": "text/plain; charset=utf-8" }).end("Too many failed logins. Try again in 30 seconds.\n");
+    return;
+  }
   const form = new URLSearchParams(body);
   const password = form.get("password") ?? "";
   const okUser = safeStrEqual(form.get("username") ?? "", cfg.web.username);
-  const okPass = verifyPassword(password, cfg.web.password);
+  const okPass = await verifyPassword(password, cfg.web.password);
   if (okUser && okPass) {
+    loginFailures.delete(ip);
     // Upgrade a legacy cleartext password to a hash on first successful login.
     if (!isPasswordHashed(cfg.web.password)) {
       try {
@@ -274,7 +283,16 @@ async function handleLogin(req: IncomingMessage, res: ServerResponse, cfg: Confi
     redirect(res, "/");
     return;
   }
-  log.warn("login failed from %s", req.socket.remoteAddress);
+  log.warn("login failed from %s", ip);
+  // shortcut: drops all counters past 1000 IPs, fine for a LAN device; use an LRU if exposed widely.
+  if (loginFailures.size > 1000) loginFailures.clear();
+  const f = loginFailures.get(ip) ?? { count: 0, lockedUntil: 0 };
+  f.count += 1;
+  if (f.count >= LOGIN_MAX_FAILURES) {
+    f.count = 0;
+    f.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+  }
+  loginFailures.set(ip, f);
   redirect(res, "/login?error=1");
 }
 

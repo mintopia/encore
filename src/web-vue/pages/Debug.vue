@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, reactive, ref, watch } from "vue";
-import { useAppControl, type Frame, type WebhookDelivery } from "../composables/useAppControl";
+import { computed, nextTick, onUnmounted, reactive, ref, toRaw, watch } from "vue";
+import { frameArrivedAt, useAppControl, type Frame, type WebhookDelivery } from "../composables/useAppControl";
 import { highlightJson } from "../lib/highlight";
 import "highlight.js/styles/github.css";
 
@@ -18,7 +18,11 @@ onUnmounted(() => clearInterval(clock));
 // (ADR-0016). Raw frames/headers/bodies otherwise reach the DOM only as text interpolation.
 const hlStore = reactive<Record<string, string>>({});
 async function ensureHl(key: string, src: string): Promise<void> {
-  if (hlStore[key] === undefined) hlStore[key] = await highlightJson(src);
+  if (hlStore[key] !== undefined) return;
+  const html = await highlightJson(src);
+  // The frame may have left the ring while highlighting; caching it then would never be pruned.
+  if (key.startsWith("frame:") && !frameRows.value.some((r) => r.id === Number(key.slice(6)))) return;
+  hlStore[key] = html;
 }
 
 // The server publishes each frame verbatim with no receipt time (only a native `type`), so a
@@ -31,7 +35,7 @@ const frameMeta = new WeakMap<Frame, FrameMeta>();
 function metaFor(f: Frame): FrameMeta {
   let m = frameMeta.get(f);
   if (!m) {
-    m = { id: nextFrameId++, at: Date.now() };
+    m = { id: nextFrameId++, at: frameArrivedAt.get(toRaw(f)) ?? Date.now() };
     frameMeta.set(f, m);
   }
   return m;
@@ -206,7 +210,8 @@ function compact(f: Frame): string {
         <span class="lbl">{{ sub.clients.length }} connected</span>
       </header>
       <p v-if="!sub.clients.length" class="empty">No clients connected.</p>
-      <table v-else class="tbl">
+      <div v-else class="tbl-wrap">
+      <table class="tbl">
         <thead>
           <tr>
             <th>IP</th><th>Tier</th><th>Auth</th><th>Uptime</th><th class="ua-col">User agent</th>
@@ -222,6 +227,7 @@ function compact(f: Frame): string {
           </tr>
         </tbody>
       </table>
+      </div>
     </section>
 
     <section class="card sect">
@@ -287,14 +293,15 @@ function compact(f: Frame): string {
 .fline:hover { background: var(--ind-s); border-radius: 6px; }
 .fline:focus-visible { outline: 2px solid var(--ind); outline-offset: -2px; border-radius: 6px; }
 .ftime { color: var(--faint); font-family: var(--disp); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-.ftype { color: var(--ind); font-weight: 600; flex: 0 0 auto; }
+.ftype { color: var(--link); font-weight: 600; flex: 0 0 auto; }
 .fprev { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .json { margin: 4px 6px 10px; border: 1px solid var(--line2); border-radius: 10px; padding: 12px; overflow: auto; font-size: 12.5px; }
 .raw { margin: 4px 0 0; border: 1px solid var(--line2); border-radius: 10px; padding: 12px; overflow: auto; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; color: var(--txt); background: var(--sub); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
 .tbl th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .tbl tr:last-child td { border-bottom: none; }
@@ -318,6 +325,6 @@ function compact(f: Frame): string {
 .pill.ok { background: var(--ok-s); color: var(--ok); }
 .pill.bad { background: var(--bad-s); color: var(--bad); }
 .pill.warn { background: var(--warn-s); color: var(--warn); }
-.pill.ind { background: var(--ind-s); color: var(--ind); }
+.pill.ind { background: var(--ind-s); color: var(--link); }
 .pill.muted { background: var(--sub); color: var(--dim); }
 </style>

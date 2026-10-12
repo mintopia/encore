@@ -32,6 +32,20 @@ function setVolume(e: MouseEvent) {
   const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   sendCommand("set_volume", { volume: Math.round(frac * 100) });
 }
+function seekKey(e: KeyboardEvent) {
+  const step = { ArrowLeft: -5000, ArrowDown: -5000, ArrowRight: 5000, ArrowUp: 5000 }[e.key];
+  const to = e.key === "Home" ? 0 : e.key === "End" ? dur.value : step === undefined ? null : pos.value + step;
+  if (to === null || !connected.value || !dur.value) return;
+  e.preventDefault();
+  sendCommand("seek", { position_ms: Math.round(Math.max(0, Math.min(dur.value, to))) });
+}
+function volumeKey(e: KeyboardEvent) {
+  const step = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5 }[e.key];
+  const to = e.key === "Home" ? 0 : e.key === "End" ? 100 : step === undefined ? null : vol.value + step;
+  if (to === null || !connected.value) return;
+  e.preventDefault();
+  sendCommand("set_volume", { volume: Math.max(0, Math.min(100, to)) });
+}
 function cycleRepeat() {
   const next = state.repeat === "off" ? "context" : state.repeat === "context" ? "track" : "off";
   if (next === "context") sendCommand("set_repeat_context", { enabled: true });
@@ -72,7 +86,9 @@ const repeatTitle = computed(() =>
         </div>
 
         <div class="prog-wrap">
-          <div class="bar" :class="{ stale, disabled: !connected }" :aria-disabled="!connected" @click="seek">
+          <div class="bar" :class="{ stale, disabled: !connected }" :aria-disabled="!connected" @click="seek"
+            role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" :aria-valuemax="Math.round(dur / 1000)"
+            :aria-valuenow="Math.round(pos / 1000)" :aria-valuetext="`${fmtTime(pos)} of ${fmtTime(dur)}`" @keydown="seekKey">
             <div class="fill" :style="{ inset: `0 ${100 - pct}% 0 0` }"></div>
             <div class="handle" :style="{ left: `${pct}%` }"></div>
           </div>
@@ -105,7 +121,8 @@ const repeatTitle = computed(() =>
           </div>
           <div class="row vol">
             <PhSpeakerSimpleHigh :size="18" weight="fill" />
-            <div class="vol-bar" :class="{ disabled: !connected }" :aria-disabled="!connected" @click="setVolume">
+            <div class="vol-bar" :class="{ disabled: !connected }" :aria-disabled="!connected" @click="setVolume"
+              role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="vol" @keydown="volumeKey">
               <div class="fill" :style="{ inset: `0 ${100 - vol}% 0 0` }"></div>
               <div class="handle" :style="{ left: `${vol}%` }"></div>
             </div>
@@ -182,7 +199,7 @@ const repeatTitle = computed(() =>
 .times { justify-content: space-between; margin-top: 9px; }
 .times span { font-size: 12px; color: var(--h-fg4); font-variant-numeric: tabular-nums; }
 
-.transport-row { justify-content: space-between; margin-top: 18px; }
+.transport-row { justify-content: space-between; flex-wrap: wrap; row-gap: 14px; margin-top: 18px; }
 .transport { gap: 12px; }
 .hbtn {
   width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
@@ -214,6 +231,7 @@ const repeatTitle = computed(() =>
 .disc.off { margin: 0; padding: 0; border: 0; background: none; height: 0; overflow: hidden; }
 .disc-dot { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; animation: disc-pulse 1.4s ease-in-out infinite; }
 @keyframes disc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .disc-dot { animation: none; } }
 
 .hbtn:disabled, .hplay:disabled { opacity: .4; cursor: not-allowed; }
 .hbtn:disabled:hover { background: transparent; color: var(--h-fg2); }
@@ -244,4 +262,5 @@ const repeatTitle = computed(() =>
   background: linear-gradient(180deg, #0c1a29, #0b212f);
   box-shadow: 0 22px 54px rgba(4, 18, 30, .42);
 }
+.bar:focus-visible, .vol-bar:focus-visible { outline: 2px solid var(--ind); outline-offset: 3px; }
 </style>

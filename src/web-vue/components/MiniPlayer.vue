@@ -82,13 +82,13 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
         <PhSkipForward :size="15" weight="fill" />
       </button>
       <div class="mpvol">
-        <button class="mpb" title="Volume" :aria-label="muted ? 'Unmute' : 'Volume'" :disabled="!connected" @click="toggleVol">
+        <button class="mpb" title="Volume" :aria-label="muted ? 'Volume (muted)' : 'Volume'" :aria-expanded="volOpen" :disabled="!connected" @click="toggleVol">
           <PhSpeakerSimpleX v-if="muted" :size="15" weight="fill" />
           <PhSpeakerSimpleHigh v-else :size="15" weight="fill" />
         </button>
         <div v-show="volOpen" class="mpVolPop" :style="volPos">
           <PhSpeakerSimpleHigh :size="15" weight="fill" />
-          <input class="mpVolRange" type="range" min="0" max="100" step="1" :value="localVol" :disabled="!connected" @input="onVolInput" />
+          <input class="mpVolRange" aria-label="Volume" type="range" min="0" max="100" step="1" :value="localVol" :disabled="!connected" @input="onVolInput" />
           <span class="mpVolVal">{{ localVol }}</span>
         </div>
       </div>
@@ -123,13 +123,14 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
 .mpb:hover { border-color: var(--ind); color: var(--ind); }
 .mpb:disabled { opacity: .4; cursor: not-allowed; }
 .mpb:disabled:hover { border-color: var(--line2); color: var(--txt); }
-.mpplay:disabled:hover { background: var(--ind); color: #fff; border-color: var(--ind); }
+.mpplay:disabled:hover { background: var(--ind); color: var(--on-ind); border-color: var(--ind); }
 .mpDisc { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 14px; background: var(--warn-s); backdrop-filter: blur(6px); color: var(--warn); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .mpDisc.off { width: 1px; height: 1px; inset: auto; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; backdrop-filter: none; }
 .mpDiscDot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex: 0 0 auto; animation: mpDisc-pulse 1.4s ease-in-out infinite; }
 @keyframes mpDisc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-.mpplay { background: var(--ind); color: #fff; border-color: var(--ind); }
-.mpplay:hover { background: var(--ind-h); color: #fff; }
+@media (prefers-reduced-motion: reduce) { .mpDiscDot { animation: none; } }
+.mpplay { background: var(--ind); color: var(--on-ind); border-color: var(--ind); }
+.mpplay:hover { background: var(--ind-h); color: var(--on-ind); }
 .mpvol { position: relative; }
 .mpVolPop { position: fixed; z-index: 50; display: flex; padding: 12px 14px; background: var(--card); border: 1px solid var(--line2); border-radius: 12px; box-shadow: var(--sh2); align-items: center; gap: 10px; }
 .mpVolRange { width: 120px; accent-color: var(--ind); }

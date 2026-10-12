@@ -289,7 +289,7 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
     void reconcileOutputs(cfg).catch((e) => log.error("external snapcast relink failed: %s", (e as Error).message)),
   );
   const appControl = new AppControl(cfg);
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 
   // Broadcast the (possibly changed) Overlay Config to open overlays so they restyle
   // live on save — no reload needed in OBS — and re-dial the Relay if its url/auth changed.
@@ -319,7 +319,7 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
     // Boot-time fan-out: link soloist-sink:monitor to the configured Audio Outputs.
     // Fire-and-forget — it waits/retries for target nodes and must not block listen.
     void reconcileOutputs(cfg).catch((e) => log.error("boot reconcile failed: %s", (e as Error).message));
-    // Keep the Audio page's sink list warm so it paints populated (see startSinkPolling).
+    // Keeps the Audio page's sink list warm and relinks outputs after a PipeWire restart or hot-plug.
     startSinkPolling(cfg);
     externalSnapcast.apply();
   }

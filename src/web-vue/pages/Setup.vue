@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { PhInfo } from "@phosphor-icons/vue";
 import AuthShell from "../components/AuthShell.vue";
 
-// Must match MIN_PASSWORD_LENGTH in web.ts — the server is the authority (UX-M8).
+// Must match MIN_PASSWORD_LENGTH in config.ts — the server is the authority (UX-M8).
 const MIN_PASSWORD_LENGTH = 8;
 
 // Native form POST to /setup — the server owns the 302 and re-serves /setup?error=1 on a

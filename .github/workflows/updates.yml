@@ -76,7 +76,15 @@ jobs:
         if: needs.due.outputs.snapserver != ''
         env:
           VERSION: ${{ needs.due.outputs.snapserver }}
-        run: sed -i -E "s/^ARG SNAPCAST_VERSION=.+$/ARG SNAPCAST_VERSION=${VERSION}/" Dockerfile
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed -i -E "s/^ARG SNAPCAST_VERSION=.+$/ARG SNAPCAST_VERSION=${VERSION}/" Dockerfile
+          for arch in amd64 arm64 armhf; do
+            deb="snapserver_${VERSION}-1_${arch}_trixie_with-pipewire.deb"
+            sha=$(gh api "repos/badaix/snapcast/releases/tags/v${VERSION}" --jq ".assets[] | select(.name == \"${deb}\") | .digest // empty | ltrimstr(\"sha256:\")")
+            [ -n "$sha" ] || { echo "::error::no digest for ${deb}"; exit 1; }
+            sed -i -E "s/^ARG SNAPSERVER_SHA256_${arch^^}=.+$/ARG SNAPSERVER_SHA256_${arch^^}=${sha}/" Dockerfile
+          done
 
       - name: Update app dependencies
         run: |
@@ -141,7 +149,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - if: steps.changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           # A PAT lets the PR trigger CI; GITHUB_TOKEN works but its PRs don't run checks.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}

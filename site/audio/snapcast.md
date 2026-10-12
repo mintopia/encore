@@ -64,7 +64,7 @@ Snapcast**. That briefly drops audio to Snapcast clients. Soloist and local outp
 playing.
 
 The stream name clients see (default `Spotify`) is set on the Snapcast row in
-**Settings → Audio Outputs**.
+**Settings → Audio Outputs**. It can't contain `&`, `#`, `?`, `=`, `%` or `+`.
 
 ## Ports
 
