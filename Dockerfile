@@ -9,7 +9,7 @@ FROM node:24-trixie-slim
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Bumping this means updating the pinned tarball hashes below too.
-ARG S6_OVERLAY_VERSION=3.2.0.2
+ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG TARGETARCH
 
 # s6-overlay (arch tarball + noarch tarball). curl+xz only needed for this fetch.
@@ -17,15 +17,15 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends curl xz-utils ca-certificates; \
     case "${TARGETARCH:-amd64}" in \
-      amd64) S6_ARCH=x86_64;  S6_SHA=59289456ab1761e277bd456a95e737c06b03ede99158beb24f12b165a904f478 ;; \
-      arm64) S6_ARCH=aarch64; S6_SHA=8b22a2eaca4bf0b27a43d36e65c89d2701738f628d1abd0cea5569619f66f785 ;; \
-      arm)   S6_ARCH=arm;     S6_SHA=e00b0d94f2cf1e4178c922c7b90181a619981103be635fe5fb0c9547e4193c52 ;; \
+      amd64) S6_ARCH=x86_64;  S6_SHA=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 ;; \
+      arm64) S6_ARCH=aarch64; S6_SHA=b17f17a82e7a515c682a91edaf2ffdabb73f891981b6c1fd712115693a2f8b4c ;; \
+      arm)   S6_ARCH=arm;     S6_SHA=9fc621c84370ab8fdf72dee51ba16c85a882d01bd2f3b388f8e1ee6bc03e00d3 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     base="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}"; \
     curl -fsSL "${base}/s6-overlay-noarch.tar.xz"      -o /tmp/s6-noarch.tar.xz; \
     curl -fsSL "${base}/s6-overlay-${S6_ARCH}.tar.xz"  -o /tmp/s6-arch.tar.xz; \
-    echo "6dbcde158a3e78b9bb141d7bcb5ccb421e563523babbe2c64470e76f4fd02dae  /tmp/s6-noarch.tar.xz" | sha256sum -c -; \
+    echo "5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12  /tmp/s6-noarch.tar.xz" | sha256sum -c -; \
     echo "${S6_SHA}  /tmp/s6-arch.tar.xz" | sha256sum -c -; \
     tar -C / -Jxpf /tmp/s6-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-arch.tar.xz; \
@@ -90,6 +90,7 @@ COPY config.example.yaml ./config.example.yaml
 COPY docker/scripts/wait-for-sink /usr/local/bin/wait-for-sink
 RUN chmod +x /usr/local/bin/wait-for-sink
 COPY docker/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY docker/user-bundles.d /etc/s6-overlay/user-bundles.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/soloist-proxy/run \
              /etc/s6-overlay/s6-rc.d/pipewire/run \
              /etc/s6-overlay/s6-rc.d/wireplumber/run \
