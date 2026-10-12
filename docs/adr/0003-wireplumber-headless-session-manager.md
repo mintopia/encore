@@ -43,3 +43,20 @@ The base image now ships WirePlumber 0.5, so the predicted Lua-drop-in change la
   the stream stays silent. The snapserver service now `pw-link`s `soloist-sink:monitor_FL/FR`
   to the capture node's `playback_FL/FR` explicitly, once those ports appear. Soloist's
   own playback node still auto-links as before.
+
+## Amendment (quiet headless startup, realtime audio)
+
+- PipeWire's stock `module-portal` and `module-jackdbus-detect` need a session bus the
+  `pipewire` service doesn't have, so `pipewire.conf.d/20-no-desktop-modules.conf` turns
+  them off via their `module.*` context properties.
+- The libcamera monitor is disabled (`wireplumber.conf.d/82-disable-libcamera.conf`)
+  rather than left logging; the image ships no libcamera SPA plugin.
+- New ALSA sinks default to full volume (`81-full-sink-volume.conf`,
+  `device.routes.default-sink-volume = 1.0`). WirePlumber's default is ~-24 dB and its
+  state dir isn't persisted, so hardware outputs would otherwise reset low on every
+  recreate. Spotify's volume is the only control.
+- RTKit is still absent, so realtime priority comes from the Compose file instead:
+  `cap_add: SYS_NICE` plus `ulimits: rtprio: 95` lets PipeWire set SCHED_FIFO directly.
+- Snapserver's mDNS advertising goes through the **host's** Avahi via a read-only
+  `/run/dbus` mount, not a system bus or Avahi inside the container (a second responder
+  on host networking would clash with the host's).

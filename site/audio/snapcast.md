@@ -14,8 +14,10 @@ Any Linux machine, including another Pi, can be a room. Install the client:
 sudo apt install snapclient
 ```
 
-Clients usually find the server automatically over mDNS. To point one at your Encore Pi
-explicitly, set the host in `/etc/default/snapclient`:
+Clients usually find the server automatically over mDNS. Encore advertises through the
+Pi's own Avahi, so this needs `avahi-daemon` running on the Pi (it is on Raspberry Pi OS)
+and the `/run/dbus` mount from the [Compose file](/guide/raspberry-pi). To point a client
+at your Encore Pi explicitly, set the host in `/etc/default/snapclient`:
 
 ```bash
 SNAPCLIENT_OPTS="--host encore.local"
