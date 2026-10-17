@@ -48,6 +48,10 @@ const sceneVars = computed(() => {
     "--bloom-b": `hsl(${h} ${glow}% 48% / .24)`,
     "--page-light": `hsl(${h} ${Math.min(s, 45)}% 94%)`,
     "--page-dark": `hsl(${h} ${Math.min(s, 40)}% 6%)`,
+    "--card-dark": `hsl(${h} ${Math.min(s, 40)}% 11%)`,
+    "--line-dark": `hsl(${h} ${Math.min(s, 34)}% 20%)`,
+    "--dim-dark": `hsl(${h} ${Math.min(s, 22)}% 74%)`,
+    "--faint-dark": `hsl(${h} ${Math.min(s, 16)}% 62%)`,
     "--page-a": `hsl(${h} 70% 46% / .22)`,
     "--page-b": `hsl(${h} 72% 52% / .16)`,
     "--page-c": `hsl(${h} 70% 42% / .14)`,
@@ -308,7 +312,10 @@ onUnmounted(() => {
     radial-gradient(780px 640px at 52% 116%, var(--page-c), transparent 62%);
   background-attachment: fixed;
 }
-:root[data-theme="dark"] .scene { background-color: var(--page-dark); }
+:root[data-theme="dark"] .scene {
+  background-color: var(--page-dark);
+  --card: var(--card-dark); --line: var(--line-dark); --dim: var(--dim-dark); --faint: var(--faint-dark);
+}
 .listen { position: relative; flex: 1; width: min(1180px, 100%); margin: 0 auto; padding: 28px 26px 10px; display: grid; align-content: start; }
 
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
@@ -321,7 +328,7 @@ onUnmounted(() => {
 .wordmark { margin: 0; font-family: var(--disp); font-weight: 700; font-size: 24px; letter-spacing: -0.01em; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-right { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 .live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--dim); background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px; }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 8px var(--ac); }
 .live.down { color: var(--warn); }
 .live.down .live-dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
@@ -342,7 +349,7 @@ onUnmounted(() => {
 .meta { flex: 1; min-width: 0; }
 .status-row { display: flex; align-items: center; gap: 8px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b6b72; }
-.dot.on { background: var(--h-green); box-shadow: 0 0 8px var(--h-green); }
+.dot.on { background: var(--ac); box-shadow: 0 0 8px var(--ac); }
 .status { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--h-fg3); }
 .title { margin: 10px 0 0; font-family: var(--disp); font-weight: 700; font-size: 38px; line-height: 1.15; letter-spacing: -.025em; color: var(--h-fg); }
 .artist {
