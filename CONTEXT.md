@@ -249,3 +249,31 @@ _Avoid_: Landing Page (that is the authenticated app), Snapweb.
 Snapcast's own built-in web UI, served by Snapserver on its web port (`1780`) in the
 Docker image. The Landing Page only links to it; the Proxy does not proxy it.
 _Avoid_: Snapserver (that is the process), Web UI (that is our Landing Page).
+
+**Listener** (Listener page):
+An unauthenticated, Encore-styled browser page the Proxy serves at `/listen` (opt-in via
+`snapcast.listener`, off by default) that lets a guest hear the current Snapcast stream and
+adjust only their Own Volume — a listen-only Snapcast client running in the browser. It
+reads now-playing, art and the queue from the Proxy WebSocket with the Read-only Token (like
+the Lyrics Overlay), decodes the FLAC stream itself (a clean-room MIT client, ADR-0028), and
+registers with Snapserver as a client named after the guest's remote IP. All its audio and
+control ride through the Proxy's own port, not Snapserver's `1780`. See ADR-0029.
+_Avoid_: Snapweb (Snapcast's full-control UI — the Listener is listen-only and Encore-served),
+Downstream Client (that consumes the Soloist data stream and may hold control), Web UI /
+Landing Page (the authenticated operator app).
+
+**Local Playback** (Listener):
+The guest's own in-browser audio on the Listener page. Start begins decoding and playing the
+Snapcast stream (and is the browser's required first user gesture); Stop closes the stream
+socket, so the guest's Snapcast client deregisters and drops off the operator's client list.
+It governs only that one browser's sound.
+_Avoid_: play/pause (those are Soloist commands on the shared session — the Listener cannot
+issue them), Audio Output (a server-side PipeWire sink).
+
+**Own Volume** (Listener):
+The Listener's own Snapcast client volume. The guest's slider sets only their own client's
+volume via Snapserver JSON-RPC, mediated by the Proxy so the single control call an anonymous
+Listener can make is `Client.SetVolume` on its own client id (ADR-0029); new Listeners default
+to 100%. Distinct from the shared Spotify device volume, which the Listener never touches.
+_Avoid_: Spotify/device volume (shared across everyone; the read-only tier cannot set it),
+group volume (left neutral).
