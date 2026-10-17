@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { readTrack, readPlayback, readQueue, applyAnchor, nowMs, fmtTime, type Track } from "../lib/wire";
+import { SnapClient, type SnapState } from "../lib/snapclient";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
 
 const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string } }).__SOLOIST_LISTEN__;
@@ -69,6 +70,30 @@ function connect() {
   ws.onerror = () => ws?.close();
 }
 
+const snapState = ref<SnapState>("idle");
+const snapDetail = ref("");
+const snap = new SnapClient(
+  {
+    onState(s, d) {
+      snapState.value = s;
+      snapDetail.value = d ?? "";
+    },
+  },
+  `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/stream`,
+);
+const snapActive = computed(() => snapState.value === "connecting" || snapState.value === "playing");
+const snapLabel = computed(() => {
+  if (snapState.value === "connecting") return "Connecting…";
+  if (snapState.value === "playing") return "Playing";
+  if (snapState.value === "error") return snapDetail.value || "Couldn't play the stream";
+  return "";
+});
+
+function toggleSnap() {
+  if (snapActive.value) snap.stop();
+  else snap.start();
+}
+
 onMounted(() => {
   connect();
   tick = setInterval(() => {
@@ -80,6 +105,7 @@ onUnmounted(() => {
   clearTimeout(timer);
   clearInterval(tick);
   ws?.close();
+  snap.stop();
 });
 </script>
 
@@ -110,6 +136,8 @@ onUnmounted(() => {
         </div>
       </template>
       <p v-else class="idle">Nothing playing</p>
+      <p v-if="snapLabel" class="idle" :class="{ err: snapState === 'error' }" role="status">{{ snapLabel }}</p>
+      <button type="button" class="go" :class="{ stop: snapActive }" @click="toggleSnap">{{ snapActive ? "Stop" : "Start" }}</button>
     </section>
 
     <section v-if="track && lyrics.length" class="panel" aria-label="Lyrics">
@@ -158,4 +186,9 @@ onUnmounted(() => {
 .fill { height: 100%; background: var(--ind); }
 .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .idle { margin: 0; text-align: center; color: var(--dim); font-size: 14px; }
+.idle.err { color: var(--bad); }
+.go { font: inherit; font-weight: 600; font-size: 15px; padding: 12px 16px; border: 0; border-radius: 12px; cursor: pointer; background: var(--ind); color: var(--on-ind); }
+.go:hover { background: var(--ind-h); }
+.go.stop { background: var(--sub); color: var(--txt); border: 1px solid var(--line2); }
+.go:focus-visible { outline: 2px solid var(--ind); outline-offset: 2px; }
 </style>

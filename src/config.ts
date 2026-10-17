@@ -16,7 +16,7 @@ export const DEFAULT_SNAPSERVER_CONFIG = `[stream]
 
 [http]
 enabled = {{snapweb}}
-bind_to_address = 0.0.0.0
+bind_to_address = {{bind}}
 port = 1780
 doc_root = /usr/share/snapserver/snapweb
 `;
@@ -248,7 +248,7 @@ export const APPLY_STRATEGY = {
   } satisfies Record<keyof Config["proxy"], ApplyStrategy>,
   soloistWs: "restart-soloist",
   streamName: "restart-snapcast",
-  listener: "live",
+  listener: "restart-snapcast",
   snapweb: "restart-snapcast",
   snapcastServerConfig: "restart-snapcast",
   autoplay: "live",

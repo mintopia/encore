@@ -21,6 +21,8 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import { ExternalSnapcast } from "./snapexternal.js";
+import { BASE_HEADER_SIZE, MessageType, clockOffsetMs, decodeHeader, decodeMessage, encodeHello, encodeMessage, encodeTimeRequest, msToTimeval } from "./snapcast-protocol.js";
+import { SNAPSTREAM_PATH, proxyStreamUpgrade } from "./snapstream-proxy.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
@@ -1700,8 +1702,9 @@ await test("APPLY_STRATEGY matches the real restart detectors", async () => {
     else for (const [k2, v2] of Object.entries(v)) leaves.push({ path: [k, k2], strategy: v2 as ApplyStrategy });
   }
 
-  const base = defaultConfig();
   for (const { path, strategy } of leaves) {
+    const base = defaultConfig();
+    if (path.join(".") === "listener") base.snapweb = false;
     const mut = structuredClone(base) as Record<string, any>;
     let o: any = mut;
     for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
@@ -2442,6 +2445,100 @@ await test("listener: /listen gated by snapcast.listener", async () => {
   lcfg.proxy.token = "CONTROL-SECRET";
   assertNoLeak("listenBootstrap", listenBootstrap(lcfg), ["CONTROL-SECRET", "sess"]);
   assert.equal(configSummary(lcfg).listener, true, "listener reported in config summary");
+});
+
+await test("snapcast stream framing (snapserver v0.35.0)", () => {
+  const le = (n: number, bytes: number) => Array.from({ length: bytes }, (_, i) => (n >>> (8 * i)) & 0xff);
+  const raw = new Uint8Array([...le(2, 2), ...le(7, 2), ...le(3, 2), ...le(10, 4), ...le(20, 4), ...le(30, 4), ...le(40, 4), ...le(0, 4)]);
+  assert.equal(raw.length, BASE_HEADER_SIZE);
+  assert.deepEqual(decodeHeader(raw), { type: 2, id: 7, refersTo: 3, sent: { sec: 10, usec: 20 }, received: { sec: 30, usec: 40 }, size: 0 });
+
+  const hello = encodeHello(1, { sec: 1, usec: 2 }, { mac: "m", hostName: "h", version: "v", clientName: "c", os: "o", arch: "a", instance: 1, id: "i" });
+  const hh = decodeHeader(hello);
+  assert.equal(hh.type, MessageType.Hello);
+  const hv = new DataView(hello.buffer);
+  const jsonLen = hv.getUint32(BASE_HEADER_SIZE, true);
+  assert.equal(hh.size, 4 + jsonLen, "hello payload is a u32-prefixed JSON string");
+  const j = JSON.parse(new TextDecoder().decode(hello.subarray(BASE_HEADER_SIZE + 4)));
+  assert.equal(j.SnapStreamProtocolVersion, 2);
+  assert.equal(j.ID, "i");
+  assert.equal(j.HostName, "h");
+
+  const tr = encodeTimeRequest(5, { sec: 9, usec: 8 });
+  assert.equal(tr.length, BASE_HEADER_SIZE + 8, "time request carries an 8-byte latency timeval");
+
+  const str = (t: string) => [...new TextEncoder().encode(t)];
+  const hdrPayload = [...le(4, 4), ...str("flac"), ...le(3, 4), 1, 2, 3];
+  const ch = decodeMessage(encodeMessage(MessageType.CodecHeader, 1, 0, { sec: 0, usec: 0 }, new Uint8Array(hdrPayload)));
+  assert.ok(ch.type === MessageType.CodecHeader);
+  assert.equal(ch.type === MessageType.CodecHeader && ch.codec.codec, "flac");
+  assert.deepEqual([...(ch.type === MessageType.CodecHeader ? ch.codec.payload : [])], [1, 2, 3]);
+
+  const chunk = decodeMessage(encodeMessage(MessageType.WireChunk, 2, 0, { sec: 0, usec: 0 }, new Uint8Array([...le(100, 4), ...le(500000, 4), ...le(2, 4), 9, 8])));
+  assert.ok(chunk.type === MessageType.WireChunk);
+  assert.deepEqual(chunk.type === MessageType.WireChunk && chunk.chunk.timestamp, { sec: 100, usec: 500000 });
+  assert.deepEqual([...(chunk.type === MessageType.WireChunk ? chunk.chunk.payload : [])], [9, 8]);
+
+  const sj = [...new TextEncoder().encode('{"bufferMs":900,"latency":20,"volume":80,"muted":true}')];
+  const ss = decodeMessage(encodeMessage(MessageType.ServerSettings, 3, 0, { sec: 0, usec: 0 }, new Uint8Array([...le(sj.length, 4), ...sj])));
+  assert.ok(ss.type === MessageType.ServerSettings);
+  assert.deepEqual(ss.type === MessageType.ServerSettings && ss.settings, { bufferMs: 900, latency: 20, volume: 80, muted: true });
+
+  assert.throws(() => decodeMessage(raw.subarray(0, 10)), /short header/);
+  assert.throws(() => decodeMessage(encodeMessage(MessageType.WireChunk, 1, 0, { sec: 0, usec: 0 }, new Uint8Array(20)).subarray(0, 30)), /truncated/);
+});
+
+await test("snapcast clock offset from one Time round trip", () => {
+  const reply = { header: { type: 4, id: 1, refersTo: 1, sent: msToTimeval(6050), received: msToTimeval(0), size: 8 }, latency: msToTimeval(5040) };
+  assert.equal(Math.round(clockOffsetMs(reply, 1090)), 5000);
+});
+
+await test("snapcast /stream proxy splices an upgrade to snapserver and strips credentials", async () => {
+  let seen = "";
+  const upstream = createTcpServer((s) => {
+    s.on("data", (d) => {
+      seen += d.toString();
+      s.write("HTTP/1.1 101 Switching Protocols\r\n\r\nhello");
+    });
+  });
+  await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+  const port = (upstream.address() as { port: number }).port;
+  const front = createServer();
+  front.on("upgrade", (req, socket, head) => proxyStreamUpgrade(req, socket, head, port));
+  await new Promise<void>((r) => front.listen(0, "127.0.0.1", r));
+  const fport = (front.address() as { port: number }).port;
+  const c = createTcpConnection(fport, "127.0.0.1");
+  c.write(`GET ${SNAPSTREAM_PATH} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: soloist_session=secret\r\nAuthorization: Bearer t\r\nSec-WebSocket-Key: abc\r\n\r\n`);
+  let got = "";
+  await new Promise<void>((r) => c.on("data", (d) => { got += d.toString(); if (got.includes("hello")) r(); }));
+  assert.match(got, /101 Switching Protocols/);
+  assert.match(seen, /^GET \/stream HTTP\/1\.1/);
+  assert.match(seen, /Sec-WebSocket-Key: abc/);
+  assert.doesNotMatch(seen, /cookie|authorization|secret/i, "credentials never reach snapserver");
+  c.destroy();
+  front.close();
+  upstream.close();
+  const closed = createServer();
+  closed.on("upgrade", (req, socket, head) => proxyStreamUpgrade(req, socket, head, 1));
+  await new Promise<void>((r) => closed.listen(0, "127.0.0.1", r));
+  const c2 = createTcpConnection((closed.address() as { port: number }).port, "127.0.0.1");
+  c2.write("GET /stream HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+  let bad = "";
+  await new Promise<void>((r) => { c2.on("data", (d) => (bad += d.toString())); c2.on("close", () => r()); });
+  assert.match(bad, /502/, "unreachable snapserver yields 502");
+  closed.close();
+});
+
+await test("snapserver [http] is enabled by the listener even when snapweb is off", () => {
+  const c = defaultConfig();
+  c.snapweb = false;
+  c.listener = false;
+  assert.match(renderSnapserverConf(c), /enabled = false/);
+  assert.match(renderSnapserverConf(c), /bind_to_address = 127\.0\.0\.1/, "listener alone stays on loopback");
+  c.listener = true;
+  assert.match(renderSnapserverConf(c), /enabled = true/);
+  c.snapweb = true;
+  assert.match(renderSnapserverConf(c), /bind_to_address = 0\.0\.0\.0/, "snapweb keeps the LAN bind");
 });
 
 await test("first-run setup gating", async () => {

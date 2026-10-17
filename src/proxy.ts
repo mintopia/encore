@@ -1,5 +1,6 @@
 // Fronts Soloist's unauthenticated localhost-only control WS with token auth.
 
+import { SNAPSTREAM_PATH, proxyStreamUpgrade } from "./snapstream-proxy.js";
 import { createServer, type Server, type IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { randomUUID } from "node:crypto";
@@ -232,6 +233,10 @@ function handleUpgrade(
       return;
     }
     appControl.handleUpgrade(req, socket, head);
+    return;
+  }
+  if (path === SNAPSTREAM_PATH && cfg.listener) {
+    proxyStreamUpgrade(req, socket, head);
     return;
   }
   const { tier, auth } = resolveAuth(req, cfg);

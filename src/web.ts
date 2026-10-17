@@ -36,6 +36,7 @@ const CONTENT_TYPES: Record<string, string> = {
   css: "text/css; charset=utf-8",
   html: "text/html; charset=utf-8",
   js: "text/javascript; charset=utf-8",
+  wasm: "application/wasm",
 };
 
 // The resolved path is confined to WEB_ROOT so a crafted "/assets/../.." can't escape
