@@ -25,7 +25,7 @@ import { BASE_HEADER_SIZE, MessageType, clockOffsetMs, decodeHeader, decodeMessa
 import { SNAPSTREAM_PATH, proxyStreamUpgrade, handleListenerRequest, scopeSetVolume, mintListenerId, validListenerId } from "./snapstream-proxy.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
-import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
+import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, normalizeConfig, type ApplyStrategy, type Config } from "./config.js";
 import { renderSnapserverConf, snapStreamSource, writeSnapserverConf, renderConfToFileFromPath } from "./snapserver.js";
 import { signSession, verifySession, parseCookies, sessionUser, webConfigured, SESSION_COOKIE } from "./session.js";
 import { relayView, overlayBootstrap, listenBootstrap, handleWebRequest } from "./web.js";
@@ -2445,6 +2445,12 @@ await test("listener: /listen gated by snapcast.listener", async () => {
   lcfg.proxy.token = "CONTROL-SECRET";
   assertNoLeak("listenBootstrap", listenBootstrap(lcfg), ["CONTROL-SECRET", "sess"]);
   assert.equal(configSummary(lcfg).listener, true, "listener reported in config summary");
+  assert.equal(normalizeConfig(lcfg).listenerDisplayName, "", "display name defaults blank");
+  lcfg.listenerDisplayName = "Party </script>";
+  assert.equal(normalizeConfig(lcfg).listenerDisplayName, "Party </script>", "display name round-trips through config");
+  const lb = listenBootstrap(lcfg);
+  assert.ok(lb.includes("Party \\u003c/script>"), "display name injected into bootstrap, '<' escaped");
+  assert.ok(!lb.includes("</script>Party") && lb.split("</script>").length === 2, "display name cannot close the script tag");
 });
 
 await test("snapcast stream framing (snapserver v0.35.0)", () => {

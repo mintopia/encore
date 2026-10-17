@@ -5,11 +5,9 @@ import SectionCard from "../../components/SectionCard.vue";
 import LoadingState from "../../components/LoadingState.vue";
 import ToggleSwitch from "../../components/ToggleSwitch.vue";
 import TextField from "../../components/TextField.vue";
-import qrcode from "qrcode-generator";
-import { listenUrl, isLoopbackHost } from "../../lib/listenUrl";
 import type { ExternalSnapcastStatus } from "../../../wire-contract";
 
-const { config, loaded, summary } = useConfig();
+const { config, loaded } = useConfig();
 const c = config as any;
 
 // Placeholder tokens shown in the Snapcast config hint. Kept as string constants because a
@@ -47,16 +45,6 @@ const portText = computed({
   set: (v: string) => { c.audio.externalSnapcast.port = Number.parseInt(v, 10) || 0; },
 });
 
-const listenerOn = computed(() => summary.listener === true);
-const publicListenUrl = listenUrl(window.location.origin);
-const loopback = isLoopbackHost(window.location.hostname);
-const qrSvg = computed(() => {
-  const qr = qrcode(0, "M");
-  qr.addData(publicListenUrl);
-  qr.make();
-  return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
-});
-
 // The source line the operator adds to the external server's snapserver.conf.
 const sourceLine = computed(() => {
   const e = c.audio.externalSnapcast;
@@ -77,22 +65,6 @@ const sourceLine = computed(() => {
         <div class="setrow-sub">Serve the Snapcast web UI and link it from the menu.</div>
       </div>
       <ToggleSwitch :on="c.snapweb" label="Enable Snapweb" @toggle="c.snapweb = !c.snapweb" />
-    </div>
-    <div class="setrow">
-      <div class="setrow-txt">
-        <div class="setrow-title">Enable Listener</div>
-        <div class="setrow-sub">Serve a public, listen-only page at <code>/listen</code> with no login.</div>
-      </div>
-      <ToggleSwitch :on="c.listener" label="Enable Listener" @toggle="c.listener = !c.listener" />
-    </div>
-    <div v-if="listenerOn" class="listen-share">
-      <div class="qr" role="img" aria-label="QR code for the public listen page" v-html="qrSvg"></div>
-      <div class="listen-txt">
-        <div class="flabel">Public listen link</div>
-        <a :href="publicListenUrl" target="_blank" rel="noopener" class="listen-url mono">{{ publicListenUrl }}</a>
-        <div class="dev-hint">Guests can scan the code to listen.</div>
-        <div v-if="loopback" class="dev-hint">This address is only reachable from this machine. Open Settings via the server's network address to share a working link.</div>
-      </div>
     </div>
     <div class="tf snap-conf">
       <label class="flabel" :for="configId">Snapcast server config</label>
@@ -146,11 +118,6 @@ const sourceLine = computed(() => {
 .setrow-title { font-size: 14px; font-weight: 600; }
 .setrow-sub { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
 .snap-conf { margin-top: 20px; }
-.listen-share { display: flex; align-items: center; gap: 16px; margin-top: 20px; }
-.qr { width: 120px; height: 120px; flex: none; background: #fff; border-radius: 8px; overflow: hidden; }
-.qr :deep(svg) { width: 100%; height: 100%; display: block; }
-.listen-txt { min-width: 0; }
-.listen-url { font-size: 13px; overflow-wrap: anywhere; }
 .snap-conf .field { width: 100%; box-sizing: border-box; }
 .tf .field { width: 100%; }
 textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; resize: vertical; }
