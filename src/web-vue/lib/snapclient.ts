@@ -1,4 +1,3 @@
-import Flac from "libflacjs/dist/libflac.wasm.js";
 import flacWasmUrl from "libflacjs/dist/libflac.wasm.wasm?url";
 import {
   MessageType,
@@ -37,17 +36,18 @@ type FlacApi = {
 
 let flacReady: Promise<FlacApi> | null = null;
 
+// libflac reads FLAC_SCRIPT_LOCATION while it evaluates, so it must be imported after the
+// location is set; a static import would be hoisted above it.
 function loadFlac(): Promise<FlacApi> {
-  flacReady ??= new Promise<FlacApi>((resolve) => {
-    const flac = Flac as unknown as FlacApi;
-    if (flac.isReady()) resolve(flac);
-    else flac.on("ready", () => resolve(flac));
-  });
+  flacReady ??= (async () => {
+    (globalThis as { FLAC_SCRIPT_LOCATION?: Record<string, string> }).FLAC_SCRIPT_LOCATION = { [FLAC_WASM_FILE]: flacWasmUrl };
+    const mod = (await import("libflacjs/dist/libflac.wasm.js")) as { default?: unknown };
+    const flac = (mod.default ?? mod) as FlacApi;
+    if (flac.isReady()) return flac;
+    return new Promise<FlacApi>((resolve) => flac.on("ready", () => resolve(flac)));
+  })();
   return flacReady;
 }
-
-// libflac looks for its wasm beside the script; point it at the hashed build asset.
-(globalThis as { FLAC_SCRIPT_LOCATION?: Record<string, string> }).FLAC_SCRIPT_LOCATION = { [FLAC_WASM_FILE]: flacWasmUrl };
 
 export type SnapState = "idle" | "connecting" | "playing" | "error";
 
