@@ -17,8 +17,9 @@ const listenerOn = computed(() => summary.listener === true);
 const publicListenUrl = listenUrl(window.location.origin);
 const loopback = isLoopbackHost(window.location.hostname);
 const copied = ref(false);
+const linkInput = ref<HTMLInputElement>();
 async function copyLink() {
-  try { await navigator.clipboard.writeText(publicListenUrl); } catch { return; }
+  try { await navigator.clipboard.writeText(publicListenUrl); } catch { linkInput.value?.select(); return; }
   copied.value = true;
   setTimeout(() => { copied.value = false; }, 1500);
 }
@@ -52,7 +53,7 @@ const qrSvg = computed(() => {
     <div class="name-field">
       <div class="flabel">Listener link</div>
       <div class="linkrow">
-        <input class="field mono" :value="publicListenUrl" readonly aria-label="Listener link" @focus="($event.target as HTMLInputElement).select()" />
+        <input ref="linkInput" class="field mono" :value="publicListenUrl" readonly aria-label="Listener link" @focus="($event.target as HTMLInputElement).select()" />
         <button type="button" class="btn" @click="copyLink">{{ copied ? "Copied" : "Copy" }}</button>
       </div>
     </div>

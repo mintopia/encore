@@ -18,7 +18,9 @@ const PRESETS = [
 
 const model = defineModel<string>({ required: true });
 const value = computed(() => (/^#[0-9a-f]{6}$/i.test(model.value) ? model.value.toLowerCase() : TEAL));
-const hsl = computed(() => hexToHsl(value.value));
+const local = ref<[number, number, number]>(hexToHsl(value.value));
+watch(value, (v) => { if (hslToHex(...local.value) !== v) local.value = hexToHsl(v); });
+const hsl = computed(() => local.value);
 const hueVal = computed(() => Math.round(hsl.value[0]));
 const satVal = computed(() => Math.round(hsl.value[1]));
 const litVal = computed(() => Math.round(hsl.value[2]));
@@ -26,7 +28,7 @@ const litVal = computed(() => Math.round(hsl.value[2]));
 const hexText = ref(value.value);
 watch(value, (v) => { hexText.value = v; });
 
-function setHsl(h: number, s: number, l: number) { model.value = hslToHex(h, s, l); }
+function setHsl(h: number, s: number, l: number) { local.value = [h, s, l]; model.value = hslToHex(h, s, l); }
 function onHex(e: Event) {
   const v = (e.target as HTMLInputElement).value.trim();
   hexText.value = v;

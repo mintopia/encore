@@ -33,7 +33,7 @@ const sceneVars = computed(() => {
   const dark = (hueShift: number, l: number) => `hsl(${(h + hueShift + 360) % 360} ${sat}% ${l}%)`;
   return {
     "--ac": ACCENT,
-    "--ac-ink": luminance(ACCENT) > 0.4 ? "#06231f" : "#fff",
+    "--ac-ink": luminance(ACCENT) > 0.21 ? "#06231f" : "#fff",
     "--ac-hero-a": dark(-8, 11),
     "--ac-hero-b": dark(6, 14),
     "--ac-panel-a": dark(-6, 10),
