@@ -20,8 +20,6 @@ const lyricIdx = computed(() => (lyrics.value.length ? currentIndex(lyrics.value
 
 function trackKey(t: Track) { return t.uri || `${t.artist}|${t.title}`; }
 
-// Lyrics are fetched (and cached) client-side by the overlay engine; a miss leaves the
-// panel empty rather than showing an error.
 watch(track, async (t, prev) => {
   if (t && prev && trackKey(t) === trackKey(prev)) return;
   lyrics.value = [];
