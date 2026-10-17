@@ -22,7 +22,7 @@ import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import { ExternalSnapcast } from "./snapexternal.js";
 import { BASE_HEADER_SIZE, MessageType, clockOffsetMs, decodeHeader, decodeMessage, encodeHello, encodeMessage, encodeTimeRequest, msToTimeval } from "./snapcast-protocol.js";
-import { SNAPSTREAM_PATH, proxyStreamUpgrade } from "./snapstream-proxy.js";
+import { SNAPSTREAM_PATH, proxyStreamUpgrade, handleListenerRequest, scopeSetVolume, mintListenerId, validListenerId } from "./snapstream-proxy.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
@@ -2527,6 +2527,48 @@ await test("snapcast /stream proxy splices an upgrade to snapserver and strips c
   await new Promise<void>((r) => { c2.on("data", (d) => (bad += d.toString())); c2.on("close", () => r()); });
   assert.match(bad, /502/, "unreachable snapserver yields 502");
   closed.close();
+});
+
+await test("listener /jsonrpc allows only own-id Client.SetVolume", async () => {
+  const sec = "s3cret";
+  const me = mintListenerId(sec);
+  const other = mintListenerId(sec);
+  assert.ok(validListenerId(me, sec));
+  assert.ok(!validListenerId(me, "other-secret"));
+  assert.ok(!validListenerId(`${me.split(".")[0]}.AAAAAAAAAAAAAAAAAAAAAA`, sec));
+  const call = (method: string, id: string, volume: unknown = { percent: 40 }) =>
+    JSON.stringify({ id: 1, jsonrpc: "2.0", method, params: { id, volume } });
+  assert.ok(scopeSetVolume(call("Client.SetVolume", me), me));
+  assert.equal(scopeSetVolume(call("Client.SetVolume", other), me), null, "other id rejected");
+  assert.equal(scopeSetVolume(call("Server.DeleteClient", me), me), null, "other method rejected");
+  assert.equal(scopeSetVolume(call("Client.SetVolume", me, { percent: 101 }), me), null);
+  assert.equal(scopeSetVolume(`[${call("Client.SetVolume", me)}]`, me), null, "batch rejected");
+  let seen = "";
+  const upstream = createServer((req, res) => {
+    req.on("data", (d) => (seen += d));
+    req.on("end", () => res.end('{"result":1}'));
+  });
+  await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+  const uport = (upstream.address() as { port: number }).port;
+  const front = createServer((req, res) => {
+    if (!handleListenerRequest(req, res, sec, uport)) res.writeHead(404).end();
+  });
+  await new Promise<void>((r) => front.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(front.address() as { port: number }).port}`;
+  const ident = (await (await fetch(`${base}/listen/identity?id=junk`)).json()) as { id: string; name: string };
+  assert.ok(validListenerId(ident.id, sec), "invalid sticky id is re-minted");
+  assert.match(ident.name, /^Encore Listener \u2014 127\.0\.0\.1$/);
+  const again = (await (await fetch(`${base}/listen/identity?id=${me}`)).json()) as { id: string };
+  assert.equal(again.id, me, "valid sticky id is kept");
+  const post = (id: string, body: string) =>
+    fetch(`${base}/jsonrpc`, { method: "POST", headers: { "x-encore-listener": id }, body });
+  assert.equal((await post(me, call("Client.SetVolume", me))).status, 200);
+  assert.match(seen, /"percent":40/);
+  assert.equal((await post(me, call("Client.SetVolume", other))).status, 403);
+  assert.equal((await post("forged", call("Client.SetVolume", "forged"))).status, 403);
+  assert.equal((await fetch(`${base}/jsonrpc`, { method: "POST", body: call("Client.SetVolume", me) })).status, 403, "no header");
+  front.close();
+  upstream.close();
 });
 
 await test("snapserver [http] is enabled by the listener even when snapweb is off", () => {

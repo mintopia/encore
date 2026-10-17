@@ -75,6 +75,7 @@ function connect() {
   ws.onerror = () => ws?.close();
 }
 
+const volume = ref(100);
 const snapState = ref<SnapState>("idle");
 let streamTimer: ReturnType<typeof setTimeout> | undefined;
 let streamBackoffMs = 1000;
@@ -87,6 +88,9 @@ const snap = new SnapClient(
         streamTimer = setTimeout(() => { if (wantStream.value) snap.start(); }, streamBackoffMs);
         streamBackoffMs = Math.min(streamBackoffMs * 2, 15000);
       }
+    },
+    onVolume(p) {
+      volume.value = p;
     },
   },
   `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/stream`,
@@ -102,6 +106,12 @@ const snapLabel = computed(() => {
   if (track.value && !wantStream.value) return "Tap Start to listen";
   return "";
 });
+
+function onVolume(e: Event) {
+  const p = Number((e.target as HTMLInputElement).value);
+  volume.value = p;
+  snap.setVolume(p);
+}
 
 function toggleSnap() {
   clearTimeout(streamTimer);
@@ -160,7 +170,11 @@ onUnmounted(() => {
         </div>
       </template>
       <p v-else class="idle">Nothing playing</p>
-      <p v-if="snapLabel" class="idle" role="status">{{ snapLabel }}</p>
+      <p v-if="snapLabel" class="idle" :class="{ err: snapState === 'error' }" role="status">{{ snapLabel }}</p>
+      <label v-if="snapActive" class="vol">
+        <span>Volume</span>
+        <input type="range" min="0" max="100" step="1" :value="volume" aria-label="Your volume" @input="onVolume" />
+      </label>
       <button type="button" class="go" :class="{ stop: snapActive }" :disabled="idle && !snapActive" @click="toggleSnap">{{ snapActive ? "Stop" : "Start" }}</button>
     </section>
 
@@ -212,6 +226,8 @@ onUnmounted(() => {
 .bar { height: 4px; border-radius: 2px; background: var(--sub); overflow: hidden; }
 .fill { height: 100%; background: var(--ind); }
 .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.vol { display: grid; gap: 6px; font-size: 13px; color: var(--dim); }
+.vol input { width: 100%; accent-color: var(--ind); }
 .idle { margin: 0; text-align: center; color: var(--dim); font-size: 14px; }
 .go:disabled { opacity: .5; cursor: not-allowed; }
 .go:disabled:hover { background: var(--ind); }
