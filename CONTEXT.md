@@ -241,6 +241,8 @@ _Avoid_: Webhook Status (one field of it), health check (this is pushed state, n
 **Listener**:
 An optional, public, unauthenticated listen-only web page served by the Proxy at `/listen`.
 Off by default (`snapcast.listener`); when off, `/listen` is 404 and nothing is mounted.
+When on, it also exposes the Snapcast `/stream` WebSocket on the Proxy's own port (spliced to
+Snapserver's internal HTTP), which its clean-room Snapcast client plays in the browser.
 _Avoid_: Landing Page (that is the authenticated app), Snapweb.
 
 **Snapweb**:

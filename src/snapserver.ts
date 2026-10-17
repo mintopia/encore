@@ -19,7 +19,9 @@ export function renderSnapserverConf(cfg: Config): string {
   const tmpl = cfg.snapcastServerConfig || DEFAULT_SNAPSERVER_CONFIG;
   return tmpl
     .replaceAll("{{stream}}", snapStreamSource(cfg))
-    .replaceAll("{{snapweb}}", cfg.snapweb ? "true" : "false");
+    .replaceAll("{{snapweb}}", cfg.snapweb || cfg.listener ? "true" : "false")
+    // Snapweb alone keeps its LAN-wide port; the Listener only needs the loopback hop from the Proxy.
+    .replaceAll("{{bind}}", cfg.snapweb ? "0.0.0.0" : "127.0.0.1");
 }
 
 export function snapcastNeedsRestart(cfg: Config): boolean {

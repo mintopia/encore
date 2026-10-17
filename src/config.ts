@@ -16,7 +16,7 @@ export const DEFAULT_SNAPSERVER_CONFIG = `[stream]
 
 [http]
 enabled = {{snapweb}}
-bind_to_address = 0.0.0.0
+bind_to_address = {{bind}}
 port = 1780
 doc_root = /usr/share/snapserver/snapweb
 `;
@@ -138,7 +138,7 @@ export interface Config {
   streamName: string;
   listener: boolean;             // serve the public listen-only /listen page (the Listener)
   snapweb: boolean;              // Docker only: serve the Snapweb UI ([http] enabled in snapserver.conf)
-  snapcastServerConfig: string; // Docker only: snapserver.conf template ({{stream}}, {{snapweb}} placeholders)
+  snapcastServerConfig: string; // Docker only: snapserver.conf template ({{stream}}, {{snapweb}}, {{bind}} placeholders)
   autoplay: boolean;
   webhooks: WebhooksConfig;
   relay: RelayConfig;
@@ -248,7 +248,7 @@ export const APPLY_STRATEGY = {
   } satisfies Record<keyof Config["proxy"], ApplyStrategy>,
   soloistWs: "restart-soloist",
   streamName: "restart-snapcast",
-  listener: "live",
+  listener: "restart-snapcast",
   snapweb: "restart-snapcast",
   snapcastServerConfig: "restart-snapcast",
   autoplay: "live",
