@@ -35,7 +35,7 @@ Snapweb, Snapcast's web UI, is at `http://<your-pi>:1780`. Use it to set per-roo
 group rooms and adjust latency. It's linked from the menu in the Encore console. Turn it off
 with **Enable Snapweb** in **Settings → Snapcast**.
 
-Want guests to listen along on their phones without Snapweb's controls? Use the
+To let guests listen along on their phones without Snapweb's controls, use the
 [Listener](/features/listener).
 
 ## Customising snapserver.conf
