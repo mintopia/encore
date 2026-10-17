@@ -35,16 +35,20 @@ Snapweb, Snapcast's web UI, is at `http://<your-pi>:1780`. Use it to set per-roo
 group rooms and adjust latency. It's linked from the menu in the Encore console. Turn it off
 with **Enable Snapweb** in **Settings → Snapcast**.
 
+To let guests listen along on their phones without Snapweb's controls, use the
+[Listener](/features/listener).
+
 ## Customising snapserver.conf
 
 **Settings → Snapcast** includes the full `snapserver.conf` as an editable template, for
-changing the codec, buffer size, ports and so on. Two placeholders are filled in when it's
+changing the codec, buffer size, ports and so on. These placeholders are filled in when it's
 written:
 
 | Placeholder | Becomes |
 |---|---|
 | <code v-pre>{{stream}}</code> | The `source = pipewire://…` line carrying Soloist's audio. Keep it. |
-| <code v-pre>{{snapweb}}</code> | `true` or `false`, from the Enable Snapweb toggle |
+| <code v-pre>{{snapweb}}</code> | `true` when Snapweb or the [Listener](/features/listener) is on, otherwise `false` |
+| <code v-pre>{{bind}}</code> | `0.0.0.0` when Snapweb is on. Otherwise `127.0.0.1`, so only Encore can reach it for the Listener |
 
 The default:
 
@@ -54,7 +58,7 @@ The default:
 
 [http]
 enabled = {{snapweb}}
-bind_to_address = 0.0.0.0
+bind_to_address = {{bind}}
 port = 1780
 doc_root = /usr/share/snapserver/snapweb
 ```

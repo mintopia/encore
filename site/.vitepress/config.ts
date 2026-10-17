@@ -49,6 +49,7 @@ export default defineConfig({
           { text: "Overview", link: "/features/" },
           { text: "Web console", link: "/features/console" },
           { text: "Lyrics overlay", link: "/features/lyrics" },
+          { text: "Listener", link: "/features/listener" },
           { text: "Autoplay", link: "/features/autoplay" },
         ],
       },

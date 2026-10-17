@@ -15,6 +15,7 @@ This was originally built to accompany [Music Party](https://github.com/mintopia
 * **Websocket Relay** - Encore can make an outbound websocket connection, with optional authorisation, and relay everything over it, optionally speaking the Pusher protocol (e.g. Laravel Reverb) on a given channel.
 * **Webhooks** - Configure webhooks with a minimum interval, a secret, and hooks for particular events.
 * **Lyrics** - Fetches lyrics for the current song from [LRCLIB](https://lrclib.net/) and serves an unauthenticated HTML overlay for OBS or anything that can overlay a webpage.
+* **Listener** - An optional public page at `/listen` where guests can see what's playing, the queue and synced lyrics, and stream the music in their browser in sync with your Snapcast speakers. You set the title and accent colour.
 * **Snapcast** - The docker version bundles a [Snapcast](https://github.com/badaix/snapcast) server for streaming audio around your network, and can also send the audio to an external Snapcast server.
 * **Autoplay** - Start playback in Soloist automatically once it authenticates with Spotify.
 * **PipeWire Included** - Soloist needs PipeWire, which most headless Linux distros don't ship. The docker version handles it for you; you just map the sound devices through.
@@ -23,6 +24,9 @@ This was originally built to accompany [Music Party](https://github.com/mintopia
 
 ![Now Playing Page Screenshot](docs/screenshots/landing.png "Now Playing")
 ![Lyrics Settings Page Screenshot](docs/screenshots/lyrics.png "Lyrics Settings")
+![Listener Page Screenshot](docs/screenshots/listener.png "Listener")
+![Listener Page with a Custom Accent Screenshot](docs/screenshots/listener-accent.png "Listener (custom accent, light theme)")
+![Listener Settings Screenshot](docs/screenshots/settings-listener.png "Listener Settings (Docker)")
 ![Soloist Settings Screenshot](docs/screenshots/settings-soloist.png "Soloist Settings (Docker)")
 ![Audio Settings Screenshot](docs/screenshots/settings-audio.png "Audio Settings (Docker)")
 ![Debug Page Screenshot](docs/screenshots/debug.png "Debug")
