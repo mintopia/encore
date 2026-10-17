@@ -8,6 +8,7 @@ import Webhooks from "./pages/Webhooks.vue";
 import SettingsSoloist from "./pages/settings/SettingsSoloist.vue";
 import SettingsSnapcast from "./pages/settings/SettingsSnapcast.vue";
 import SettingsRelay from "./pages/settings/SettingsRelay.vue";
+import SettingsListener from "./pages/settings/SettingsListener.vue";
 import SettingsWeb from "./pages/settings/SettingsWeb.vue";
 
 // Paths mirror web.ts APP_PATHS.
@@ -23,6 +24,7 @@ const routes: RouteRecordRaw[] = [
       { path: "audio", name: "settings-audio", component: Audio },
       { path: "snapcast", name: "settings-snapcast", component: SettingsSnapcast },
       { path: "webhooks", name: "settings-webhooks", component: Webhooks },
+      { path: "listener", name: "settings-listener", component: SettingsListener },
       { path: "relay", name: "settings-relay", component: SettingsRelay },
       { path: "web", name: "settings-web", component: SettingsWeb },
     ],

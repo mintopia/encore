@@ -6,7 +6,7 @@ import { PhSun, PhMoon } from "@phosphor-icons/vue";
 import { useTheme } from "../composables/useTheme";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
 
-const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string } }).__SOLOIST_LISTEN__;
+const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string; displayName?: string } }).__SOLOIST_LISTEN__;
 
 const track = ref<Track | null>(null);
 const queue = ref<Track[]>([]);
@@ -140,7 +140,7 @@ onUnmounted(() => {
 <template>
   <main class="listen">
     <header class="top">
-      <h1 class="wordmark">Encore</h1>
+      <h1 class="wordmark">{{ boot?.displayName || "Encore" }}</h1>
       <button type="button" class="theme" :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleTheme">
         <PhSun v-if="theme === 'dark'" :size="18" weight="bold" />
         <PhMoon v-else :size="18" weight="bold" />

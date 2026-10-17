@@ -88,9 +88,10 @@ function serveOverlay(res: ServerResponse, cfg: Config): void {
   res.writeHead(200, { "content-type": CONTENT_TYPES.html }).end(html);
 }
 
-// Embeds only the Read-only Token for the Listener page's observe-only socket.
+// Embeds the Read-only Token for the Listener page's observe-only socket and the
+// display name, so the wordmark renders correctly on first paint.
 export function listenBootstrap(cfg: Config): string {
-  const payload = JSON.stringify({ token: cfg.proxy.readonlyToken }).replace(/</g, "\\u003c");
+  const payload = JSON.stringify({ token: cfg.proxy.readonlyToken, displayName: cfg.listenerDisplayName }).replace(/</g, "\\u003c");
   return `<script>window.__SOLOIST_LISTEN__=${payload};</script>`;
 }
 
