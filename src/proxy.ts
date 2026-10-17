@@ -1,6 +1,6 @@
 // Fronts Soloist's unauthenticated localhost-only control WS with token auth.
 
-import { SNAPSTREAM_PATH, proxyStreamUpgrade } from "./snapstream-proxy.js";
+import { SNAPSTREAM_PATH, proxyStreamUpgrade, handleListenerRequest } from "./snapstream-proxy.js";
 import { createServer, type Server, type IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { randomUUID } from "node:crypto";
@@ -307,6 +307,7 @@ export function makeServer(cfg: Config, configPath: string, control?: SoloistCon
   const { publishProxyStatus, statusTimer, unlistenWebhooks } = wireDiagnostics(hub, relay, appControl, history, control);
 
   const server = createServer((req, res) => {
+    if (cfg.listener && handleListenerRequest(req, res, cfg.web.sessionSecret)) return;
     if (!handleWebRequest(req, res, cfg, configPath, control, onConfigChange, relay.status, (r) => appControl.closeForRequest(r), () => externalSnapcast.status)) res.writeHead(404, { "content-type": "text/plain" }).end("Not found\n");
   });
 

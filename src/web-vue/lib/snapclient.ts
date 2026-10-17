@@ -53,7 +53,10 @@ export type SnapState = "idle" | "connecting" | "playing" | "error";
 
 export interface SnapClientEvents {
   onState(state: SnapState, detail?: string): void;
+  onVolume?(percent: number): void;
 }
+
+const ID_KEY = "encore-listener-id";
 
 class FlacStream {
   private pending: Uint8Array[] = [];
@@ -141,7 +144,31 @@ export class SnapClient {
   private sources = new Set<AudioBufferSourceNode>();
   private gain: GainNode | null = null;
 
+  private clientIdValue = "";
+  private clientName = "Encore Listener";
+
   constructor(private events: SnapClientEvents, private url: string) {}
+
+  setVolume(percent: number): void {
+    if (!this.clientIdValue) return;
+    const p = Math.max(0, Math.min(100, Math.round(percent)));
+    void fetch("/jsonrpc", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-encore-listener": this.clientIdValue },
+      body: JSON.stringify({ id: this.nextId++, jsonrpc: "2.0", method: "Client.SetVolume", params: { id: this.clientIdValue, volume: { percent: p } } }),
+    }).catch(() => {});
+  }
+
+  private async identify(): Promise<void> {
+    let stored = "";
+    try { stored = localStorage.getItem(ID_KEY) ?? ""; } catch {}
+    const r = await fetch(`/listen/identity?id=${encodeURIComponent(stored)}`);
+    if (!r.ok) throw new Error("couldn't register with the server");
+    const j = (await r.json()) as { id: string; name: string };
+    this.clientIdValue = j.id;
+    this.clientName = j.name;
+    try { localStorage.setItem(ID_KEY, j.id); } catch {}
+  }
 
   // Browsers only allow an AudioContext to start inside a user gesture, so call from the tap.
   start(): void {
@@ -152,8 +179,8 @@ export class SnapClient {
     this.gain = ctx.createGain();
     this.gain.connect(ctx.destination);
     void ctx.resume();
-    void loadFlac().then(
-      (flac) => this.connect(flac),
+    void Promise.all([loadFlac(), this.identify()]).then(
+      ([flac]) => this.connect(flac),
       (e) => this.fail(e),
     );
   }
@@ -195,11 +222,11 @@ export class SnapClient {
           mac: "00:00:00:00:00:00",
           hostName: "encore-listener",
           version: "0.0.0",
-          clientName: "Encore Listener",
+          clientName: this.clientName,
           os: navigator.platform || "web",
           arch: "web",
           instance: Math.floor(Math.random() * 0x7fffffff),
-          id: this.clientId(),
+          id: this.clientIdValue,
         }),
       );
       this.syncLoop(0);
@@ -217,20 +244,6 @@ export class SnapClient {
     };
   }
 
-  private clientId(): string {
-    const key = "encore-listener-id";
-    try {
-      let id = localStorage.getItem(key);
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem(key, id);
-      }
-      return id;
-    } catch {
-      return crypto.randomUUID();
-    }
-  }
-
   private syncLoop(n: number): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     this.ws.send(encodeTimeRequest(this.nextId++, msToTimeval(Date.now())));
@@ -242,6 +255,8 @@ export class SnapClient {
     switch (msg.type) {
       case MessageType.ServerSettings:
         this.settings = msg.settings;
+        if (this.gain) this.gain.gain.value = msg.settings.muted ? 0 : msg.settings.volume / 100;
+        this.events.onVolume?.(msg.settings.volume);
         break;
       case MessageType.Time: {
         const now = Date.now();

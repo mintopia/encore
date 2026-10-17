@@ -70,6 +70,7 @@ function connect() {
   ws.onerror = () => ws?.close();
 }
 
+const volume = ref(100);
 const snapState = ref<SnapState>("idle");
 const snapDetail = ref("");
 const snap = new SnapClient(
@@ -77,6 +78,9 @@ const snap = new SnapClient(
     onState(s, d) {
       snapState.value = s;
       snapDetail.value = d ?? "";
+    },
+    onVolume(p) {
+      volume.value = p;
     },
   },
   `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/stream`,
@@ -88,6 +92,12 @@ const snapLabel = computed(() => {
   if (snapState.value === "error") return snapDetail.value || "Couldn't play the stream";
   return "";
 });
+
+function onVolume(e: Event) {
+  const p = Number((e.target as HTMLInputElement).value);
+  volume.value = p;
+  snap.setVolume(p);
+}
 
 function toggleSnap() {
   if (snapActive.value) snap.stop();
@@ -137,6 +147,10 @@ onUnmounted(() => {
       </template>
       <p v-else class="idle">Nothing playing</p>
       <p v-if="snapLabel" class="idle" :class="{ err: snapState === 'error' }" role="status">{{ snapLabel }}</p>
+      <label v-if="snapActive" class="vol">
+        <span>Volume</span>
+        <input type="range" min="0" max="100" step="1" :value="volume" aria-label="Your volume" @input="onVolume" />
+      </label>
       <button type="button" class="go" :class="{ stop: snapActive }" @click="toggleSnap">{{ snapActive ? "Stop" : "Start" }}</button>
     </section>
 
@@ -185,6 +199,8 @@ onUnmounted(() => {
 .bar { height: 4px; border-radius: 2px; background: var(--sub); overflow: hidden; }
 .fill { height: 100%; background: var(--ind); }
 .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.vol { display: grid; gap: 6px; font-size: 13px; color: var(--dim); }
+.vol input { width: 100%; accent-color: var(--ind); }
 .idle { margin: 0; text-align: center; color: var(--dim); font-size: 14px; }
 .idle.err { color: var(--bad); }
 .go { font: inherit; font-weight: 600; font-size: 15px; padding: 12px 16px; border: 0; border-radius: 12px; cursor: pointer; background: var(--ind); color: var(--on-ind); }
