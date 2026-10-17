@@ -1,4 +1,4 @@
-# 0029 — The Listener sets only its own volume through a one-method allow-listed /jsonrpc
+# 0031 — The Listener sets only its own volume through a one-method allow-listed /jsonrpc
 
 Status: accepted
 
