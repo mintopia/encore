@@ -4,6 +4,7 @@ import { readTrack, readPlayback, readQueue, applyAnchor, nowMs, fmtTime, type T
 import { SnapClient, type SnapState } from "../lib/snapclient";
 import { PhSun, PhMoon, PhHeadphones, PhStop, PhSpeakerSimpleHigh, PhSpotifyLogo, PhVinylRecord, PhCaretDown, PhMusicNotesSimple, PhMusicNotes, PhArrowUpRight, PhMicrophoneStage } from "@phosphor-icons/vue";
 import SiteFooter from "../components/SiteFooter.vue";
+import Marquee from "../components/Marquee.vue";
 import { hexToHsl, luminance } from "../lib/color";
 import { useTheme } from "../composables/useTheme";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
@@ -210,10 +211,10 @@ onUnmounted(() => {
                     <span class="dot" :class="{ on: anchor.speed > 0 }"></span>
                     <span class="status">{{ statusText }}</span>
                   </div>
-                  <p class="title">{{ track.title }}</p>
-                  <p class="artist">{{ [track.artist, track.album].filter(Boolean).join(" — ") }}</p>
+                  <p class="title" :title="track.title"><Marquee :text="track.title" /></p>
+                  <p v-if="track.artist" class="artist" :title="track.artist">{{ track.artist }}</p>
                   <div v-if="track.album || spotifyUrl" class="actions">
-                    <span v-if="track.album" class="chip"><PhVinylRecord :size="15" weight="fill" /><span>{{ track.album }}</span></span>
+                    <span v-if="track.album" class="chip" :title="track.album"><PhVinylRecord :size="15" weight="fill" /><span>{{ track.album }}</span></span>
                     <a v-if="spotifyUrl" class="spot" :href="spotifyUrl" target="_blank" rel="noopener">
                       <PhSpotifyLogo class="spot-logo" :size="15" weight="fill" />Open in Spotify<PhArrowUpRight class="spot-arrow" :size="12" weight="bold" />
                     </a>
@@ -266,7 +267,7 @@ onUnmounted(() => {
             <span class="qcount">{{ queue.length }}</span>
           </div>
           <ol v-if="queue.length" class="queue">
-            <li v-for="(q, i) in queue" :key="i">
+            <li v-for="(q, i) in queue" :key="i" :title="[q.title, q.artist].filter(Boolean).join(' — ')">
               <img v-if="q.art" class="qart" :src="q.art" alt="" />
               <span v-else class="qart" aria-hidden="true"></span>
               <span class="qmeta">
@@ -343,10 +344,13 @@ onUnmounted(() => {
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b6b72; }
 .dot.on { background: var(--h-green); box-shadow: 0 0 8px var(--h-green); }
 .status { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--h-fg3); }
-.title { margin: 10px 0 0; font-family: var(--disp); font-weight: 700; font-size: 38px; line-height: 1.05; letter-spacing: -.025em; color: var(--h-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.artist { margin: 6px 0 0; color: var(--h-fg2); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.actions { display: flex; align-items: center; gap: 9px; margin-top: 16px; min-width: 0; }
-.chip { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; overflow: hidden; font-size: 12px; font-weight: 600; color: var(--h-fg2); background: rgba(255,255,255,.1); border-radius: 20px; padding: 5px 11px; }
+.title { margin: 10px 0 0; font-family: var(--disp); font-weight: 700; font-size: 38px; line-height: 1.15; letter-spacing: -.025em; color: var(--h-fg); }
+.artist {
+  margin: 6px 0 0; color: var(--h-fg2); font-size: 16px; line-height: 1.35; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.actions { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; margin-top: 16px; min-width: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; overflow: hidden; font-size: 12px; font-weight: 600; color: var(--h-fg2); background: rgba(255,255,255,.1); border-radius: 20px; padding: 5px 11px; }
 .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spot { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--h-fg); background: rgba(255,255,255,.1); border: 1px solid var(--h-hair); border-radius: 20px; padding: 5px 12px; text-decoration: none; }
 .spot:hover { background: rgba(255,255,255,.18); color: var(--h-fg); }
@@ -416,8 +420,10 @@ onUnmounted(() => {
   .hero-inner { padding: 22px 20px; }
   .art-row { flex-direction: column; gap: 20px; text-align: center; }
   .art { width: min(320px, 72vw); height: auto; aspect-ratio: 1; }
-  .status-row, .actions { justify-content: center; }
-  .title { font-size: 30px; white-space: normal; }
+  .meta { align-self: stretch; }
+  .status-row { justify-content: center; }
+  .actions { align-items: center; }
+  .title { font-size: 30px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .caret { transition: none; }
