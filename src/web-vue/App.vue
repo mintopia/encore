@@ -38,6 +38,7 @@ function isActive(t: { to: string; exact?: boolean }) {
 
 // Snapweb (Snapcast web UI) runs on the deployment host's port 1780 (docker-compose).
 const snapwebUrl = `http://${location.hostname}:1780`;
+const showListen = computed(() => cfg.summary.listener === true);
 const showSnapweb = computed(() => !standalone.value && snapwebEnabled.value);
 
 // Error is checked before dirty: a failed save leaves edits dirty, so the failure
@@ -90,7 +91,7 @@ function confirmDiscard() {
 
       <MiniPlayer />
 
-      <AppMenu :nav-items="tabs" :snapweb-url="snapwebUrl" :show-snapweb="showSnapweb" />
+      <AppMenu :nav-items="tabs" :snapweb-url="snapwebUrl" :show-snapweb="showSnapweb" :show-listen="showListen" />
     </header>
 
     <div v-if="cfg.summary.pendingRestart" class="banner">
