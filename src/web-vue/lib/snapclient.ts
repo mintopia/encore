@@ -147,9 +147,9 @@ export class SnapClient {
   start(): void {
     if (this.ws) return;
     this.events.onState("connecting");
-    const ctx = new AudioContext({ latencyHint: "interactive" });
+    const ctx = this.ctx ?? new AudioContext({ latencyHint: "interactive" });
     this.ctx = ctx;
-    this.gain = ctx.createGain();
+    this.gain ??= ctx.createGain();
     this.gain.connect(ctx.destination);
     void ctx.resume();
     void loadFlac().then(
@@ -158,7 +158,7 @@ export class SnapClient {
     );
   }
 
-  stop(): void {
+  stop(keepContext = false): void {
     window.clearTimeout(this.syncTimer);
     this.ws?.close();
     this.ws = null;
@@ -170,9 +170,11 @@ export class SnapClient {
     this.sources.clear();
     this.stream?.destroy();
     this.stream = null;
-    void this.ctx?.close();
-    this.ctx = null;
-    this.gain = null;
+    if (!keepContext) {
+      void this.ctx?.close();
+      this.ctx = null;
+      this.gain = null;
+    }
     this.samples = [];
     this.offsetMs = null;
     this.nextStart = 0;
@@ -180,7 +182,7 @@ export class SnapClient {
   }
 
   private fail(e: unknown): void {
-    this.stop();
+    this.stop(true);
     this.events.onState("error", e instanceof Error ? e.message : String(e));
   }
 

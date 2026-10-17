@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { readTrack, readPlayback, readQueue, applyAnchor, nowMs, fmtTime, type Track } from "../lib/wire";
 import { SnapClient, type SnapState } from "../lib/snapclient";
+import { PhSun, PhMoon } from "@phosphor-icons/vue";
 import { useTheme } from "../composables/useTheme";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
 
@@ -130,7 +131,10 @@ onUnmounted(() => {
   <main class="listen">
     <header class="top">
       <h1 class="wordmark">Encore</h1>
-      <button type="button" class="theme" :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleTheme">{{ theme === "dark" ? "☀" : "☾" }}</button>
+      <button type="button" class="theme" :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleTheme">
+        <PhSun v-if="theme === 'dark'" :size="18" weight="bold" />
+        <PhMoon v-else :size="18" weight="bold" />
+      </button>
     </header>
     <section class="frame" aria-label="Now playing">
       <img v-if="track?.art" class="art" :src="track.art" alt="" />
@@ -184,7 +188,7 @@ onUnmounted(() => {
 <style scoped>
 .listen { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 28px; padding: 24px; }
 .top { width: min(360px, 100%); display: flex; align-items: center; justify-content: space-between; }
-.theme { font: inherit; font-size: 16px; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; background: var(--card); color: var(--txt); border: 1px solid var(--line); }
+.theme { display: grid; place-items: center; padding: 0; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; background: var(--card); color: var(--txt); border: 1px solid var(--line); }
 .theme:focus-visible { outline: 2px solid var(--ind); outline-offset: 2px; }
 .wordmark { margin: 0; font-family: var(--disp); font-weight: 700; font-size: 28px; letter-spacing: -0.01em; color: var(--txt); }
 .panel { width: min(360px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--sh2); padding: 16px 20px; }
