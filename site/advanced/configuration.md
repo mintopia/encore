@@ -20,7 +20,7 @@ creates it from the commented example on first start.
 | `autoplay` | Start playing on login | [Autoplay](/features/autoplay) |
 | `webhooks` | Outbound HTTP events | [Webhooks](/advanced/webhooks) |
 | `relay` | Outbound WebSocket bridge | [Relay](/advanced/relay) |
-| `snapcast` | Stream name, Snapweb, `server_config` template | [Snapcast](/audio/snapcast) |
+| `snapcast` | Stream name, Snapweb, `server_config` template, Listener page, display name and accent | [Snapcast](/audio/snapcast), [Listener](/features/listener) |
 | `audio` | Outputs, per-output delays, Snapcast output, external Snapcast | [Outputs](/audio/outputs), [Sending](/audio/sending) |
 | `overlay` | Lyrics overlay styling | [Lyrics](/features/lyrics) |
 

@@ -7,6 +7,7 @@
 | [Snapcast server](/audio/snapcast) | Synced multi-room audio to any Snapcast client | ✓ | |
 | [Send to another Snapserver](/audio/sending) | Feed a Snapserver you already run, over push or pull | ✓ | |
 | [Lyrics overlay](/features/lyrics) | Synced karaoke-style lyrics page for OBS and other overlays | ✓ | ✓ |
+| [Listener](/features/listener) | Public listen-along page: now playing, queue, lyrics and in-browser streaming for guests | ✓ | |
 | [Autoplay](/features/autoplay) | Start playing as soon as Soloist logs in | ✓ | ✓ |
 | [Control WebSocket](/advanced/websocket) | Token-authenticated access to Soloist's events and commands | ✓ | ✓ |
 | [Webhooks](/advanced/webhooks) | HTTP POSTs on track changes, playback and more | ✓ | ✓ |
