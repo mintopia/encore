@@ -2,6 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { readTrack, readPlayback, readQueue, applyAnchor, nowMs, fmtTime, type Track } from "../lib/wire";
 import { SnapClient, type SnapState } from "../lib/snapclient";
+import { PhSun, PhMoon } from "@phosphor-icons/vue";
+import { useTheme } from "../composables/useTheme";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
 
 const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string } }).__SOLOIST_LISTEN__;
@@ -11,6 +13,8 @@ const queue = ref<Track[]>([]);
 const lyricsOpen = ref(false);
 const lyrics = ref<LyricLine[]>([]);
 const lyricsEl = ref<HTMLElement>();
+const { theme, toggle: toggleTheme } = useTheme();
+const wsUp = ref(false);
 const anchor = reactive({ anchorMs: 0, anchorAt: 0, speed: 0 });
 const positionMs = ref(0);
 
@@ -53,13 +57,14 @@ let closed = false;
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}/?token=${encodeURIComponent(boot?.token ?? "")}`);
-  ws.onopen = () => { backoffMs = 1000; };
+  ws.onopen = () => { backoffMs = 1000; wsUp.value = true; };
   ws.onmessage = (ev) => {
     let msg: any;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg && typeof msg === "object" && !Array.isArray(msg)) onFrame(msg);
   };
   ws.onclose = () => {
+    wsUp.value = false;
     if (closed) return;
     anchor.anchorMs = nowMs(anchor);
     anchor.anchorAt = Date.now();
@@ -71,27 +76,39 @@ function connect() {
 }
 
 const snapState = ref<SnapState>("idle");
-const snapDetail = ref("");
+let streamTimer: ReturnType<typeof setTimeout> | undefined;
+let streamBackoffMs = 1000;
 const snap = new SnapClient(
   {
     onState(s, d) {
       snapState.value = s;
-      snapDetail.value = d ?? "";
+      if (s === "playing") streamBackoffMs = 1000;
+      if (s === "error" && wantStream.value && !closed) {
+        streamTimer = setTimeout(() => { if (wantStream.value) snap.start(); }, streamBackoffMs);
+        streamBackoffMs = Math.min(streamBackoffMs * 2, 15000);
+      }
     },
   },
   `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/stream`,
 );
-const snapActive = computed(() => snapState.value === "connecting" || snapState.value === "playing");
+const wantStream = ref(false);
+const snapActive = computed(() => wantStream.value);
+const reconnecting = computed(() => !wsUp.value || (wantStream.value && snapState.value === "error"));
+const idle = computed(() => !track.value);
 const snapLabel = computed(() => {
+  if (reconnecting.value) return "Reconnecting…";
   if (snapState.value === "connecting") return "Connecting…";
   if (snapState.value === "playing") return "Playing";
-  if (snapState.value === "error") return snapDetail.value || "Couldn't play the stream";
+  if (track.value && !wantStream.value) return "Tap Start to listen";
   return "";
 });
 
 function toggleSnap() {
-  if (snapActive.value) snap.stop();
-  else snap.start();
+  clearTimeout(streamTimer);
+  streamBackoffMs = 1000;
+  wantStream.value = !wantStream.value;
+  if (wantStream.value) snap.start();
+  else snap.stop();
 }
 
 onMounted(() => {
@@ -103,6 +120,7 @@ onMounted(() => {
 onUnmounted(() => {
   closed = true;
   clearTimeout(timer);
+  clearTimeout(streamTimer);
   clearInterval(tick);
   ws?.close();
   snap.stop();
@@ -111,7 +129,13 @@ onUnmounted(() => {
 
 <template>
   <main class="listen">
-    <h1 class="wordmark">Encore</h1>
+    <header class="top">
+      <h1 class="wordmark">Encore</h1>
+      <button type="button" class="theme" :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleTheme">
+        <PhSun v-if="theme === 'dark'" :size="18" weight="bold" />
+        <PhMoon v-else :size="18" weight="bold" />
+      </button>
+    </header>
     <section class="frame" aria-label="Now playing">
       <img v-if="track?.art" class="art" :src="track.art" alt="" />
       <div v-else class="art" aria-hidden="true"></div>
@@ -136,8 +160,8 @@ onUnmounted(() => {
         </div>
       </template>
       <p v-else class="idle">Nothing playing</p>
-      <p v-if="snapLabel" class="idle" :class="{ err: snapState === 'error' }" role="status">{{ snapLabel }}</p>
-      <button type="button" class="go" :class="{ stop: snapActive }" @click="toggleSnap">{{ snapActive ? "Stop" : "Start" }}</button>
+      <p v-if="snapLabel" class="idle" role="status">{{ snapLabel }}</p>
+      <button type="button" class="go" :class="{ stop: snapActive }" :disabled="idle && !snapActive" @click="toggleSnap">{{ snapActive ? "Stop" : "Start" }}</button>
     </section>
 
     <section v-if="track && lyrics.length" class="panel" aria-label="Lyrics">
@@ -163,6 +187,9 @@ onUnmounted(() => {
 
 <style scoped>
 .listen { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 28px; padding: 24px; }
+.top { width: min(360px, 100%); display: flex; align-items: center; justify-content: space-between; }
+.theme { display: grid; place-items: center; padding: 0; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; background: var(--card); color: var(--txt); border: 1px solid var(--line); }
+.theme:focus-visible { outline: 2px solid var(--ind); outline-offset: 2px; }
 .wordmark { margin: 0; font-family: var(--disp); font-weight: 700; font-size: 28px; letter-spacing: -0.01em; color: var(--txt); }
 .panel { width: min(360px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--sh2); padding: 16px 20px; }
 .toggle { all: unset; box-sizing: border-box; width: 100%; display: flex; justify-content: space-between; cursor: pointer; font-family: var(--disp); font-weight: 700; font-size: 15px; color: var(--txt); }
@@ -186,7 +213,8 @@ onUnmounted(() => {
 .fill { height: 100%; background: var(--ind); }
 .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .idle { margin: 0; text-align: center; color: var(--dim); font-size: 14px; }
-.idle.err { color: var(--bad); }
+.go:disabled { opacity: .5; cursor: not-allowed; }
+.go:disabled:hover { background: var(--ind); }
 .go { font: inherit; font-weight: 600; font-size: 15px; padding: 12px 16px; border: 0; border-radius: 12px; cursor: pointer; background: var(--ind); color: var(--on-ind); }
 .go:hover { background: var(--ind-h); }
 .go.stop { background: var(--sub); color: var(--txt); border: 1px solid var(--line2); }

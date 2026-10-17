@@ -12,8 +12,8 @@ function stored(): Theme | null {
   }
 }
 
-// Committed light unless the user has opted into dark (DESIGN.md). The <head> inline
-// script applies the stored value pre-paint to avoid FOUC; this mirrors it reactively.
+// Light unless the user opted into dark; the <head> inline script applies the stored value (or, on /listen,
+// the OS preference) pre-paint to avoid FOUC, and this mirrors it reactively.
 const theme = ref<Theme>((document.documentElement.dataset.theme as Theme) || stored() || "light");
 document.documentElement.dataset.theme = theme.value;
 
