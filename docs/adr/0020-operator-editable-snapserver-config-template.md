@@ -13,6 +13,7 @@ placeholders, substituted at render time by `src/snapserver.ts`:
   Audio Route (ADR-0011) keeps working unchanged.
 - `{{snapweb}}` → `true`/`false`, wired to the `snapweb` toggle; the default template uses it
   as `enabled = {{snapweb}}` in `[http]`, so turning Snapweb off stops serving the web UI.
+- `{{bind}}` → `0.0.0.0` when Snapweb is on, else `127.0.0.1` (the Listener only needs the Proxy's loopback hop to `/stream`, ADR-0030).
 
 The **same renderer** feeds both the s6 run script (at container start) and the Proxy's
 apply-on-demand path, so the file on disk is byte-identical to what the Proxy would produce.

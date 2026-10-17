@@ -4,7 +4,7 @@ import { PhHeart } from "@phosphor-icons/vue";
 
 <template>
   <footer class="foot">
-    <a class="credit" href="https://github.com/mintopia" target="_blank" rel="noopener">Made with <span class="heart" aria-label="love"><PhHeart class="h-out" :size="13" weight="regular" /><PhHeart class="h-fill" :size="13" weight="fill" /></span> by Mintopia</a>
+    <a class="credit" href="https://pimusic.stream" target="_blank" rel="noopener">Made with <span class="heart" aria-label="love"><PhHeart class="h-out" :size="13" weight="regular" /><PhHeart class="h-fill" :size="13" weight="fill" /></span> by Mintopia</a>
   </footer>
 </template>
 

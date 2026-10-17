@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from "vue";
 import { useConfig } from "../composables/useConfig";
-import { PhSpotifyLogo, PhSpeakerHifi, PhBroadcast, PhWebhooksLogo, PhPlugs, PhLock } from "@phosphor-icons/vue";
+import { PhSpotifyLogo, PhSpeakerHifi, PhBroadcast, PhWebhooksLogo, PhPlugs, PhLock, PhHeadphones } from "@phosphor-icons/vue";
 
 const { summary } = useConfig();
 
@@ -15,6 +15,7 @@ const items = computed<Item[]>(() =>
     { to: "/settings/soloist", label: "Soloist", icon: PhSpotifyLogo },
     { to: "/settings/audio", label: "Audio Outputs", icon: PhSpeakerHifi, docker: true },
     { to: "/settings/snapcast", label: "Snapcast", icon: PhBroadcast, docker: true },
+    { to: "/settings/listener", label: "Listener", icon: PhHeadphones },
     { to: "/settings/webhooks", label: "Webhooks", icon: PhWebhooksLogo },
     { to: "/settings/relay", label: "WebSocket Relay", icon: PhPlugs },
     { to: "/settings/web", label: "Web Access", icon: PhLock },

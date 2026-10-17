@@ -65,6 +65,7 @@ relay:
 
 snapcast:
   stream_name: "Spotify"          # Docker-only; no & # ? = % +
+  listener: false                 # serve the public, unauthenticated listen-only page at /listen
 
 # Audio Outputs (Docker-only). Soloist's audio is fanned out to these. `outputs`
 # lists enabled hardware sinks by PipeWire node.name; `snapcast` toggles the

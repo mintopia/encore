@@ -16,7 +16,7 @@ export const DEFAULT_SNAPSERVER_CONFIG = `[stream]
 
 [http]
 enabled = {{snapweb}}
-bind_to_address = 0.0.0.0
+bind_to_address = {{bind}}
 port = 1780
 doc_root = /usr/share/snapserver/snapweb
 `;
@@ -136,6 +136,9 @@ export interface Config {
   proxy: { listen: string; token: string; readonlyToken: string };
   soloistWs: string;
   streamName: string;
+  listener: boolean;             // serve the public listen-only /listen page (the Listener)
+  listenerDisplayName: string;   // Listener wordmark; blank shows "Encore"
+  listenerAccent: string;        // Listener accent as #rrggbb; blank is brand teal
   snapweb: boolean;              // Docker only: serve the Snapweb UI ([http] enabled in snapserver.conf)
   snapcastServerConfig: string; // Docker only: snapserver.conf template ({{stream}}, {{snapweb}} placeholders)
   autoplay: boolean;
@@ -232,6 +235,11 @@ export type ApplyStrategy =
   | "restart-snapcast"
   | "restart-process";
 
+export function normalizeHexColor(v: unknown): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(v ?? "").trim());
+  return m ? `#${m[1].toLowerCase()}` : "";
+}
+
 export const APPLY_STRATEGY = {
   soloist: {
     deviceName: "restart-soloist",
@@ -247,6 +255,9 @@ export const APPLY_STRATEGY = {
   } satisfies Record<keyof Config["proxy"], ApplyStrategy>,
   soloistWs: "restart-soloist",
   streamName: "restart-snapcast",
+  listener: "restart-snapcast",
+  listenerDisplayName: "live",
+  listenerAccent: "live",
   snapweb: "restart-snapcast",
   snapcastServerConfig: "restart-snapcast",
   autoplay: "live",
@@ -375,6 +386,9 @@ function parseConfig(raw: unknown): Config {
     },
     soloistWs: d.soloist_ws || DEFAULT_SOLOIST_WS,
     streamName: snapcast.stream_name || DEFAULT_STREAM_NAME,
+    listener: coerceBool(snapcast.listener, false),
+    listenerDisplayName: String(snapcast.listener_display_name ?? "").trim(),
+    listenerAccent: normalizeHexColor(snapcast.listener_accent),
     snapweb: coerceBool(snapcast.snapweb, true),
     snapcastServerConfig: String(snapcast.server_config ?? "") || DEFAULT_SNAPSERVER_CONFIG,
     autoplay: coerceBool(d.autoplay, false),
@@ -464,7 +478,7 @@ function configToRaw(c: Config): Record<string, unknown> {
       readonly_token: c.proxy.readonlyToken,
     },
     soloist_ws: c.soloistWs,
-    snapcast: { stream_name: c.streamName, snapweb: c.snapweb, server_config: c.snapcastServerConfig },
+    snapcast: { stream_name: c.streamName, snapweb: c.snapweb, listener: c.listener, listener_display_name: c.listenerDisplayName, listener_accent: c.listenerAccent, server_config: c.snapcastServerConfig },
     autoplay: c.autoplay,
     webhooks: {
       default_url: c.webhooks.defaultUrl,
@@ -581,6 +595,9 @@ export function configSummary(cfg: Config): Record<string, unknown> {
     autoplay: cfg.autoplay,
     streamName: cfg.streamName,
     snapweb: cfg.snapweb,
+    listener: cfg.listener,
+    listenerDisplayName: cfg.listenerDisplayName,
+    listenerAccent: cfg.listenerAccent,
     secrets,
   };
 }

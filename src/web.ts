@@ -36,6 +36,7 @@ const CONTENT_TYPES: Record<string, string> = {
   css: "text/css; charset=utf-8",
   html: "text/html; charset=utf-8",
   js: "text/javascript; charset=utf-8",
+  wasm: "application/wasm",
 };
 
 // The resolved path is confined to WEB_ROOT so a crafted "/assets/../.." can't escape
@@ -84,6 +85,25 @@ function serveOverlay(res: ServerResponse, cfg: Config): void {
   // Function replacer: a `$` in an Overlay Config value must not be read as a
   // replace-pattern token ($$, $&, ...).
   html = html.replace("<!--__OVERLAY_BOOTSTRAP__-->", () => overlayBootstrap(cfg));
+  res.writeHead(200, { "content-type": CONTENT_TYPES.html }).end(html);
+}
+
+// Embeds the Read-only Token for the Listener page's observe-only socket and the
+// display name, so the wordmark renders correctly on first paint.
+export function listenBootstrap(cfg: Config): string {
+  const payload = JSON.stringify({ token: cfg.proxy.readonlyToken, displayName: cfg.listenerDisplayName, accent: cfg.listenerAccent }).replace(/</g, "\\u003c");
+  return `<script>window.__SOLOIST_LISTEN__=${payload};</script>`;
+}
+
+function serveListen(res: ServerResponse, cfg: Config): void {
+  let html: string;
+  try {
+    html = readFileSync(resolve(WEB_ROOT, "listen.html"), "utf8");
+  } catch {
+    res.writeHead(404).end("Not found\n");
+    return;
+  }
+  html = html.replace("<!--__LISTEN_BOOTSTRAP__-->", () => listenBootstrap(cfg));
   res.writeHead(200, { "content-type": CONTENT_TYPES.html }).end(html);
 }
 
@@ -324,6 +344,13 @@ export function handleWebRequest(
   // Unauthenticated: no secrets ship in these files.
   if (method === "GET" && (path.startsWith("/assets/") || path === "/overlay.js" || path === "/frame.js")) {
     serveAsset(res, path);
+    return true;
+  }
+
+  // Open (unauthenticated) and opt-in: 404 unless snapcast.listener is on.
+  if (path === "/listen" && method === "GET") {
+    if (!cfg.listener) return false;
+    serveListen(res, cfg);
     return true;
   }
 

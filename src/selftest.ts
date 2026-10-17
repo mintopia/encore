@@ -21,12 +21,14 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import { ExternalSnapcast } from "./snapexternal.js";
+import { BASE_HEADER_SIZE, MessageType, clockOffsetMs, decodeHeader, decodeMessage, encodeHello, encodeMessage, encodeTimeRequest, msToTimeval } from "./snapcast-protocol.js";
+import { SNAPSTREAM_PATH, proxyStreamUpgrade, handleListenerRequest, scopeSetVolume, mintListenerId, validListenerId } from "./snapstream-proxy.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
-import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
+import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, normalizeConfig, normalizeHexColor, type ApplyStrategy, type Config } from "./config.js";
 import { renderSnapserverConf, snapStreamSource, writeSnapserverConf, renderConfToFileFromPath } from "./snapserver.js";
 import { signSession, verifySession, parseCookies, sessionUser, webConfigured, SESSION_COOKIE } from "./session.js";
-import { relayView, overlayBootstrap, handleWebRequest } from "./web.js";
+import { relayView, overlayBootstrap, listenBootstrap, handleWebRequest } from "./web.js";
 import { buildArgv, supervise, SoloistControl, Aborted } from "./supervisor.js";
 import { setPipewireDeviceOverride, setDockerMode, isDockerMode, getPipewireDeviceOverride } from "./runtime.js";
 import { parseMainArgs, applyRuntimeFlags, installShutdownHandlers, armShutdownWatchdog, SHUTDOWN_TIMEOUT_MS } from "./main.js";
@@ -739,6 +741,7 @@ await test("loadConfig: literals, section defaults, missing file", async () => {
   assert.deepEqual(cfg.audio.outputs, [], "audio.outputs absent -> []");
   assert.equal(cfg.audio.snapcast, true, "audio.snapcast defaults on");
   assert.equal(cfg.snapweb, true, "snapcast.snapweb defaults on");
+  assert.equal(cfg.listener, false, "snapcast.listener defaults off, independent of snapweb");
   assert.equal(cfg.snapcastServerConfig, DEFAULT_SNAPSERVER_CONFIG, "snapcast.server_config absent -> default template");
   assert.deepEqual(cfg.audio.outputDelays, {}, "audio.output_delays absent -> {}");
   assert.equal(cfg.relay.url, "", "relay.url absent -> empty (off)");
@@ -1699,8 +1702,9 @@ await test("APPLY_STRATEGY matches the real restart detectors", async () => {
     else for (const [k2, v2] of Object.entries(v)) leaves.push({ path: [k, k2], strategy: v2 as ApplyStrategy });
   }
 
-  const base = defaultConfig();
   for (const { path, strategy } of leaves) {
+    const base = defaultConfig();
+    if (path.join(".") === "listener") base.snapweb = false;
     const mut = structuredClone(base) as Record<string, any>;
     let o: any = mut;
     for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
@@ -2402,6 +2406,194 @@ const setupReq = (method: string, url: string, body = ""): IncomingMessage => {
   (r as { socket: unknown }).socket = { remoteAddress: "test" };
   return r as IncomingMessage;
 };
+
+const listenUrlMod = await loadRawTs("../src/web-vue/lib/listenUrl.ts");
+const { listenUrl: lUrl, isLoopbackHost: lLoop } = (listenUrlMod ?? {}) as {
+  listenUrl(origin: string): string;
+  isLoopbackHost(h: string): boolean;
+};
+if (listenUrlMod) {
+  await test("listener: share URL and loopback detection", async () => {
+    assert.equal(lUrl("http://pi.lan:8080"), "http://pi.lan:8080/listen");
+    assert.equal(lLoop("localhost"), true);
+    assert.equal(lLoop("127.0.0.1"), true);
+    assert.equal(lLoop("pi.lan"), false);
+    assert.equal(lLoop("192.168.1.5"), false);
+  });
+}
+
+await test("listener: /listen gated by snapcast.listener", async () => {
+  const lcfg = defaultConfig();
+  lcfg.web.username = "u";
+  lcfg.web.password = "p";
+  lcfg.web.sessionSecret = "sess";
+  const path = join(tempDir("listen-"), "config.yaml");
+  const hit = () => {
+    const r = fakeRes();
+    const handled = handleWebRequest(setupReq("GET", "/listen"), r as unknown as ServerResponse, lcfg, path);
+    return { r, handled };
+  };
+  let h = hit();
+  assert.equal(h.handled, false, "flag off: /listen not handled (falls through to 404)");
+  lcfg.listener = true;
+  h = hit();
+  assert.equal(h.handled, true, "flag on: /listen handled without a session");
+  assert.equal(h.r.statusCode, 200, "flag on: /listen served unauthenticated");
+  assert.match(h.r.body, /Encore — Listen/, "flag on: Listener shell served");
+  assert.match(h.r.body, /window\.__SOLOIST_LISTEN__=/, "Listener embeds bootstrap server-side");
+  assert.ok(h.r.body.includes(JSON.stringify(lcfg.proxy.readonlyToken)), "Listener embeds the Read-only Token");
+  lcfg.proxy.token = "CONTROL-SECRET";
+  assertNoLeak("listenBootstrap", listenBootstrap(lcfg), ["CONTROL-SECRET", "sess"]);
+  assert.equal(configSummary(lcfg).listener, true, "listener reported in config summary");
+  assert.equal(normalizeConfig(lcfg).listenerDisplayName, "", "display name defaults blank");
+  lcfg.listenerDisplayName = "Party </script>";
+  assert.equal(normalizeConfig(lcfg).listenerDisplayName, "Party </script>", "display name round-trips through config");
+  assert.equal(normalizeConfig(lcfg).listenerAccent, "", "accent defaults blank (brand teal)");
+  for (const [raw, want] of [["#AbCdEf", "#abcdef"], ["14b8a6", "#14b8a6"], ["red", ""], ["#12345", ""]] as const) {
+    assert.equal(normalizeHexColor(raw), want, `accent ${raw}`);
+  }
+  lcfg.listenerAccent = "#8b5cf6";
+  assert.ok(listenBootstrap(lcfg).includes('"accent":"#8b5cf6"'), "accent injected into Listener bootstrap");
+  const lb = listenBootstrap(lcfg);
+  assert.ok(lb.includes("Party \\u003c/script>"), "display name injected into bootstrap, '<' escaped");
+  assert.ok(!lb.includes("</script>Party") && lb.split("</script>").length === 2, "display name cannot close the script tag");
+});
+
+await test("snapcast stream framing (snapserver v0.35.0)", () => {
+  const le = (n: number, bytes: number) => Array.from({ length: bytes }, (_, i) => (n >>> (8 * i)) & 0xff);
+  const raw = new Uint8Array([...le(2, 2), ...le(7, 2), ...le(3, 2), ...le(10, 4), ...le(20, 4), ...le(30, 4), ...le(40, 4), ...le(0, 4)]);
+  assert.equal(raw.length, BASE_HEADER_SIZE);
+  assert.deepEqual(decodeHeader(raw), { type: 2, id: 7, refersTo: 3, sent: { sec: 10, usec: 20 }, received: { sec: 30, usec: 40 }, size: 0 });
+
+  const hello = encodeHello(1, { sec: 1, usec: 2 }, { mac: "m", hostName: "h", version: "v", clientName: "c", os: "o", arch: "a", instance: 1, id: "i" });
+  const hh = decodeHeader(hello);
+  assert.equal(hh.type, MessageType.Hello);
+  const hv = new DataView(hello.buffer);
+  const jsonLen = hv.getUint32(BASE_HEADER_SIZE, true);
+  assert.equal(hh.size, 4 + jsonLen, "hello payload is a u32-prefixed JSON string");
+  const j = JSON.parse(new TextDecoder().decode(hello.subarray(BASE_HEADER_SIZE + 4)));
+  assert.equal(j.SnapStreamProtocolVersion, 2);
+  assert.equal(j.ID, "i");
+  assert.equal(j.HostName, "h");
+
+  const tr = encodeTimeRequest(5, { sec: 9, usec: 8 });
+  assert.equal(tr.length, BASE_HEADER_SIZE + 8, "time request carries an 8-byte latency timeval");
+
+  const str = (t: string) => [...new TextEncoder().encode(t)];
+  const hdrPayload = [...le(4, 4), ...str("flac"), ...le(3, 4), 1, 2, 3];
+  const ch = decodeMessage(encodeMessage(MessageType.CodecHeader, 1, 0, { sec: 0, usec: 0 }, new Uint8Array(hdrPayload)));
+  assert.ok(ch.type === MessageType.CodecHeader);
+  assert.equal(ch.type === MessageType.CodecHeader && ch.codec.codec, "flac");
+  assert.deepEqual([...(ch.type === MessageType.CodecHeader ? ch.codec.payload : [])], [1, 2, 3]);
+
+  const chunk = decodeMessage(encodeMessage(MessageType.WireChunk, 2, 0, { sec: 0, usec: 0 }, new Uint8Array([...le(100, 4), ...le(500000, 4), ...le(2, 4), 9, 8])));
+  assert.ok(chunk.type === MessageType.WireChunk);
+  assert.deepEqual(chunk.type === MessageType.WireChunk && chunk.chunk.timestamp, { sec: 100, usec: 500000 });
+  assert.deepEqual([...(chunk.type === MessageType.WireChunk ? chunk.chunk.payload : [])], [9, 8]);
+
+  const sj = [...new TextEncoder().encode('{"bufferMs":900,"latency":20,"volume":80,"muted":true}')];
+  const ss = decodeMessage(encodeMessage(MessageType.ServerSettings, 3, 0, { sec: 0, usec: 0 }, new Uint8Array([...le(sj.length, 4), ...sj])));
+  assert.ok(ss.type === MessageType.ServerSettings);
+  assert.deepEqual(ss.type === MessageType.ServerSettings && ss.settings, { bufferMs: 900, latency: 20, volume: 80, muted: true });
+
+  assert.throws(() => decodeMessage(raw.subarray(0, 10)), /short header/);
+  assert.throws(() => decodeMessage(encodeMessage(MessageType.WireChunk, 1, 0, { sec: 0, usec: 0 }, new Uint8Array(20)).subarray(0, 30)), /truncated/);
+});
+
+await test("snapcast clock offset from one Time round trip", () => {
+  const reply = { header: { type: 4, id: 1, refersTo: 1, sent: msToTimeval(6050), received: msToTimeval(0), size: 8 }, latency: msToTimeval(5040) };
+  assert.equal(Math.round(clockOffsetMs(reply, 1090)), 5000);
+});
+
+await test("snapcast /stream proxy splices an upgrade to snapserver and strips credentials", async () => {
+  let seen = "";
+  const upstream = createTcpServer((s) => {
+    s.on("data", (d) => {
+      seen += d.toString();
+      s.write("HTTP/1.1 101 Switching Protocols\r\n\r\nhello");
+    });
+  });
+  await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+  const port = (upstream.address() as { port: number }).port;
+  const front = createServer();
+  front.on("upgrade", (req, socket, head) => proxyStreamUpgrade(req, socket, head, port));
+  await new Promise<void>((r) => front.listen(0, "127.0.0.1", r));
+  const fport = (front.address() as { port: number }).port;
+  const c = createTcpConnection(fport, "127.0.0.1");
+  c.write(`GET ${SNAPSTREAM_PATH} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: soloist_session=secret\r\nAuthorization: Bearer t\r\nSec-WebSocket-Key: abc\r\n\r\n`);
+  let got = "";
+  await new Promise<void>((r) => c.on("data", (d) => { got += d.toString(); if (got.includes("hello")) r(); }));
+  assert.match(got, /101 Switching Protocols/);
+  assert.match(seen, /^GET \/stream HTTP\/1\.1/);
+  assert.match(seen, /Sec-WebSocket-Key: abc/);
+  assert.doesNotMatch(seen, /cookie|authorization|secret/i, "credentials never reach snapserver");
+  c.destroy();
+  front.close();
+  upstream.close();
+  const closed = createServer();
+  closed.on("upgrade", (req, socket, head) => proxyStreamUpgrade(req, socket, head, 1));
+  await new Promise<void>((r) => closed.listen(0, "127.0.0.1", r));
+  const c2 = createTcpConnection((closed.address() as { port: number }).port, "127.0.0.1");
+  c2.write("GET /stream HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+  let bad = "";
+  await new Promise<void>((r) => { c2.on("data", (d) => (bad += d.toString())); c2.on("close", () => r()); });
+  assert.match(bad, /502/, "unreachable snapserver yields 502");
+  closed.close();
+});
+
+await test("listener /jsonrpc allows only own-id Client.SetVolume", async () => {
+  const sec = "s3cret";
+  const me = mintListenerId(sec);
+  const other = mintListenerId(sec);
+  assert.ok(validListenerId(me, sec));
+  assert.ok(!validListenerId(me, "other-secret"));
+  assert.ok(!validListenerId(`${me.split(".")[0]}.AAAAAAAAAAAAAAAAAAAAAA`, sec));
+  const call = (method: string, id: string, volume: unknown = { percent: 40 }) =>
+    JSON.stringify({ id: 1, jsonrpc: "2.0", method, params: { id, volume } });
+  assert.ok(scopeSetVolume(call("Client.SetVolume", me), me));
+  assert.equal(scopeSetVolume(call("Client.SetVolume", other), me), null, "other id rejected");
+  assert.equal(scopeSetVolume(call("Server.DeleteClient", me), me), null, "other method rejected");
+  assert.equal(scopeSetVolume(call("Client.SetVolume", me, { percent: 101 }), me), null);
+  assert.equal(scopeSetVolume(`[${call("Client.SetVolume", me)}]`, me), null, "batch rejected");
+  let seen = "";
+  const upstream = createServer((req, res) => {
+    req.on("data", (d) => (seen += d));
+    req.on("end", () => res.end('{"result":1}'));
+  });
+  await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+  const uport = (upstream.address() as { port: number }).port;
+  const front = createServer((req, res) => {
+    if (!handleListenerRequest(req, res, sec, uport)) res.writeHead(404).end();
+  });
+  await new Promise<void>((r) => front.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(front.address() as { port: number }).port}`;
+  const ident = (await (await fetch(`${base}/listen/identity?id=junk`)).json()) as { id: string; name: string };
+  assert.ok(validListenerId(ident.id, sec), "invalid sticky id is re-minted");
+  assert.match(ident.name, /^Encore Listener \u2014 127\.0\.0\.1$/);
+  const again = (await (await fetch(`${base}/listen/identity?id=${me}`)).json()) as { id: string };
+  assert.equal(again.id, me, "valid sticky id is kept");
+  const post = (id: string, body: string) =>
+    fetch(`${base}/jsonrpc`, { method: "POST", headers: { "x-encore-listener": id }, body });
+  assert.equal((await post(me, call("Client.SetVolume", me))).status, 200);
+  assert.match(seen, /"percent":40/);
+  assert.equal((await post(me, call("Client.SetVolume", other))).status, 403);
+  assert.equal((await post("forged", call("Client.SetVolume", "forged"))).status, 403);
+  assert.equal((await fetch(`${base}/jsonrpc`, { method: "POST", body: call("Client.SetVolume", me) })).status, 403, "no header");
+  front.close();
+  upstream.close();
+});
+
+await test("snapserver [http] is enabled by the listener even when snapweb is off", () => {
+  const c = defaultConfig();
+  c.snapweb = false;
+  c.listener = false;
+  assert.match(renderSnapserverConf(c), /enabled = false/);
+  assert.match(renderSnapserverConf(c), /bind_to_address = 127\.0\.0\.1/, "listener alone stays on loopback");
+  c.listener = true;
+  assert.match(renderSnapserverConf(c), /enabled = true/);
+  c.snapweb = true;
+  assert.match(renderSnapserverConf(c), /bind_to_address = 0\.0\.0\.0/, "snapweb keeps the LAN bind");
+});
 
 await test("first-run setup gating", async () => {
   const call = (r: ReturnType<typeof fakeRes>, req: IncomingMessage, cfg: Config) =>
