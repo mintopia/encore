@@ -739,6 +739,7 @@ await test("loadConfig: literals, section defaults, missing file", async () => {
   assert.deepEqual(cfg.audio.outputs, [], "audio.outputs absent -> []");
   assert.equal(cfg.audio.snapcast, true, "audio.snapcast defaults on");
   assert.equal(cfg.snapweb, true, "snapcast.snapweb defaults on");
+  assert.equal(cfg.listener, false, "snapcast.listener defaults off, independent of snapweb");
   assert.equal(cfg.snapcastServerConfig, DEFAULT_SNAPSERVER_CONFIG, "snapcast.server_config absent -> default template");
   assert.deepEqual(cfg.audio.outputDelays, {}, "audio.output_delays absent -> {}");
   assert.equal(cfg.relay.url, "", "relay.url absent -> empty (off)");
@@ -2402,6 +2403,27 @@ const setupReq = (method: string, url: string, body = ""): IncomingMessage => {
   (r as { socket: unknown }).socket = { remoteAddress: "test" };
   return r as IncomingMessage;
 };
+
+await test("listener: /listen gated by snapcast.listener", async () => {
+  const lcfg = defaultConfig();
+  lcfg.web.username = "u";
+  lcfg.web.password = "p";
+  lcfg.web.sessionSecret = "sess";
+  const path = join(tempDir("listen-"), "config.yaml");
+  const hit = () => {
+    const r = fakeRes();
+    const handled = handleWebRequest(setupReq("GET", "/listen"), r as unknown as ServerResponse, lcfg, path);
+    return { r, handled };
+  };
+  let h = hit();
+  assert.equal(h.handled, false, "flag off: /listen not handled (falls through to 404)");
+  lcfg.listener = true;
+  h = hit();
+  assert.equal(h.handled, true, "flag on: /listen handled without a session");
+  assert.equal(h.r.statusCode, 200, "flag on: /listen served unauthenticated");
+  assert.match(h.r.body, /Encore — Listen/, "flag on: Listener shell served");
+  assert.equal(configSummary(lcfg).listener, true, "listener reported in config summary");
+});
 
 await test("first-run setup gating", async () => {
   const call = (r: ReturnType<typeof fakeRes>, req: IncomingMessage, cfg: Config) =>

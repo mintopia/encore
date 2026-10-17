@@ -327,6 +327,13 @@ export function handleWebRequest(
     return true;
   }
 
+  // Open (unauthenticated) and opt-in: 404 unless snapcast.listener is on.
+  if (path === "/listen" && method === "GET") {
+    if (!cfg.listener) return false;
+    serveAsset(res, "/listen.html");
+    return true;
+  }
+
   // Open (unauthenticated): the overlay embeds the Read-only Token server-side.
   if (path === "/overlay" && method === "GET") {
     serveOverlay(res, cfg);

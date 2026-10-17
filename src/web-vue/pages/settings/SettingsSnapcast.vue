@@ -66,6 +66,13 @@ const sourceLine = computed(() => {
       </div>
       <ToggleSwitch :on="c.snapweb" label="Enable Snapweb" @toggle="c.snapweb = !c.snapweb" />
     </div>
+    <div class="setrow">
+      <div class="setrow-txt">
+        <div class="setrow-title">Enable Listener</div>
+        <div class="setrow-sub">Serve a public, listen-only page at <code>/listen</code> with no login.</div>
+      </div>
+      <ToggleSwitch :on="c.listener" label="Enable Listener" @toggle="c.listener = !c.listener" />
+    </div>
     <div class="tf snap-conf">
       <label class="flabel" :for="configId">Snapcast server config</label>
       <textarea :id="configId" class="field mono" rows="12" spellcheck="false" v-model="c.snapcastServerConfig"></textarea>
