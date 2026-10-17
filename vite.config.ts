@@ -24,6 +24,7 @@ export default defineConfig({
         index: r("./src/web-vue/index.html"),
         login: r("./src/web-vue/login.html"),
         setup: r("./src/web-vue/setup.html"),
+        listen: r("./src/web-vue/listen.html"),
       },
     },
   },

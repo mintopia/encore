@@ -238,6 +238,11 @@ A Proxy-originated telemetry frame pushed periodically over the App-Control WebS
 Relay status, and the newest Webhook Status. It feeds the Menu's status entries and badge.
 _Avoid_: Webhook Status (one field of it), health check (this is pushed state, not a probe).
 
+**Listener**:
+An optional, public, unauthenticated listen-only web page served by the Proxy at `/listen`.
+Off by default (`snapcast.listener`); when off, `/listen` is 404 and nothing is mounted.
+_Avoid_: Landing Page (that is the authenticated app), Snapweb.
+
 **Snapweb**:
 Snapcast's own built-in web UI, served by Snapserver on its web port (`1780`) in the
 Docker image. The Landing Page only links to it; the Proxy does not proxy it.
