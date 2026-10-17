@@ -2404,6 +2404,21 @@ const setupReq = (method: string, url: string, body = ""): IncomingMessage => {
   return r as IncomingMessage;
 };
 
+const listenUrlMod = await loadRawTs("../src/web-vue/lib/listenUrl.ts");
+const { listenUrl: lUrl, isLoopbackHost: lLoop } = (listenUrlMod ?? {}) as {
+  listenUrl(origin: string): string;
+  isLoopbackHost(h: string): boolean;
+};
+if (listenUrlMod) {
+  await test("listener: share URL and loopback detection", async () => {
+    assert.equal(lUrl("http://pi.lan:8080"), "http://pi.lan:8080/listen");
+    assert.equal(lLoop("localhost"), true);
+    assert.equal(lLoop("127.0.0.1"), true);
+    assert.equal(lLoop("pi.lan"), false);
+    assert.equal(lLoop("192.168.1.5"), false);
+  });
+}
+
 await test("listener: /listen gated by snapcast.listener", async () => {
   const lcfg = defaultConfig();
   lcfg.web.username = "u";

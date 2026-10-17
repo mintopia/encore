@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from "vue";
 import { useRoute } from "vue-router";
-import { PhList, PhPlayCircle, PhMicrophoneStage, PhGearSix, PhTerminal, PhBroadcast, PhArrowUpRight, PhSun, PhMoon, PhSignOut } from "@phosphor-icons/vue";
+import { PhList, PhPlayCircle, PhMicrophoneStage, PhGearSix, PhTerminal, PhBroadcast, PhHeadphones, PhArrowUpRight, PhSun, PhMoon, PhSignOut } from "@phosphor-icons/vue";
 import { useTheme } from "../composables/useTheme";
 import { useAppControl } from "../composables/useAppControl";
 import { usePlayback } from "../composables/usePlayback";
@@ -11,6 +11,7 @@ defineProps<{
   navItems: { to: string; label: string; exact?: boolean }[];
   snapwebUrl: string;
   showSnapweb: boolean;
+  showListen: boolean;
 }>();
 
 const { theme, toggle } = useTheme();
@@ -144,6 +145,15 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onDocPointer))
       >
         <PhBroadcast :size="16" weight="bold" />
         <span>Snapweb</span>
+        <PhArrowUpRight class="ext" :size="13" weight="bold" />
+      </a>
+
+      <a
+        v-if="showListen" data-menuitem class="item" href="/listen"
+        target="_blank" rel="noopener" @click="closeMenu()"
+      >
+        <PhHeadphones :size="16" weight="bold" />
+        <span>Public listen</span>
         <PhArrowUpRight class="ext" :size="13" weight="bold" />
       </a>
 
