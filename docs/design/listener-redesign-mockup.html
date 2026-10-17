@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Encore Listener — redesign mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+<style>
+/* ---- tokens (lifted verbatim from src/web-vue/styles/tokens.css) ---- */
+:root{
+  --bg:#edece8;--card:#ffffff;--sub:#fbfbf9;--line:#e9e9e5;--line2:#dcdcd7;
+  --txt:#1b1b1a;--dim:#6d6d68;--faint:#78776f;
+  --ind:#0d9488;--ind-h:#0f766e;--ind-s:#e2f5f1;--link:#0f766e;
+  --ok:#16a34a;--bad:#dc2626;--warn:#b45309;
+  --on-ind:#fff;
+  --sans:'Instrument Sans',system-ui,sans-serif;--disp:'Space Grotesk',system-ui,sans-serif;
+  --sh:0 1px 2px rgba(20,20,20,.05);--sh2:0 12px 40px rgba(30,30,40,.10);
+  /* immersive scene — derived from the accent by JS; defaults = cold-ocean */
+  --hero-g1:#0c1a2c;--hero-g2:#0b2233;--hero-g3:#0a2531;--rail-g1:#0c1a29;--rail-g2:#0b212f;
+  --bloom-a:rgba(20,184,166,.42);--bloom-b:rgba(6,182,212,.30);
+  --pg-b1:rgba(13,148,136,.14);--pg-b2:rgba(6,182,212,.10);--pg-b3:rgba(45,212,191,.13);
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f16;--card:#161e2b;--sub:#10161f;--line:#273241;--line2:#37455a;
+  --txt:#eef2f8;--dim:#a8b6c8;--faint:#8695a8;
+  --ind:#2dd4bf;--ind-h:#5eead4;--ind-s:rgba(45,212,191,.18);--link:#5eead4;
+  --ok:#4ade80;--bad:#fb7185;--warn:#fbbf24;
+  --on-ind:#06231f;
+  --sh:0 1px 2px rgba(0,0,0,.5);--sh2:0 16px 46px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(760px 420px at 8% -6%,var(--pg-b1),transparent 60%),
+    radial-gradient(720px 460px at 96% 4%,var(--pg-b2),transparent 60%);
+  background-attachment:fixed;
+}
+:root[data-theme="dark"] body{
+  background-image:
+    radial-gradient(920px 540px at 4% -10%,var(--pg-b1),transparent 62%),
+    radial-gradient(820px 560px at 100% 0%,var(--pg-b2),transparent 60%),
+    radial-gradient(780px 640px at 52% 116%,var(--pg-b3),transparent 62%);
+}
+a{color:var(--link);text-decoration:none;}
+::selection{background:var(--ind-s);color:var(--ind-h);}
+:root{accent-color:var(--ac);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px;border:3px solid transparent;background-clip:content-box;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---- mockup chrome (scaffolding, NOT part of the design) ---- */
+.chrome{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;
+  padding:12px 20px;background:rgba(10,14,20,.86);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08);color:#dbe4ef;font-size:12.5px;}
+.chrome .brandc{font-family:var(--disp);font-weight:700;letter-spacing:-.01em;color:#fff;font-size:14px;margin-right:4px;}
+.chrome .grp{display:flex;align-items:center;gap:7px;}
+.chrome .grp>span{color:#8695a8;font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;}
+.seg2{display:inline-flex;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:2px;}
+.seg2 button{font:inherit;font-weight:600;font-size:12px;color:#aab6c6;background:none;border:0;border-radius:7px;padding:5px 11px;cursor:pointer;}
+.seg2 button.on{background:#2dd4bf;color:#06231f;}
+
+.frameWrap{padding:26px 18px 40px;display:flex;justify-content:center;}
+.device{width:100%;max-width:1180px;transition:max-width .25s ease;
+  --ac:#2dd4bf;--ac-ink:#06231f;}        /* accent (viewer choice) — default brand teal */
+.frameWrap[data-vp="mobile"] .device{max-width:402px;box-shadow:0 30px 80px rgba(0,0,0,.4);border-radius:30px;overflow:hidden;outline:1px solid rgba(255,255,255,.08);}
+.frameWrap[data-vp="mobile"] .stage{padding:20px 16px 8px;}
+
+/* =========================================================
+   LISTENER
+   ========================================================= */
+.stage{margin:0 auto;padding:28px 26px 10px;position:relative;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px;}
+.brand{display:flex;align-items:center;gap:11px;min-width:0;}
+.brandTile{width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;font-size:20px;
+  color:var(--ac-ink);background:linear-gradient(135deg,color-mix(in srgb,var(--ac),#fff 10%),var(--ac));box-shadow:0 6px 16px color-mix(in srgb,var(--ac),transparent 60%);}
+.wordmark{margin:0;font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-.01em;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topright{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.livechip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--dim);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:5px 12px;}
+.livedot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);}
+.iconBtn{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;cursor:pointer;background:var(--card);color:var(--txt);border:1px solid var(--line);font-size:18px;position:relative;}
+
+.deck{display:grid;gap:20px;align-items:start;grid-template-columns:minmax(0,1.6fr) minmax(332px,1fr);}
+.frameWrap[data-vp="mobile"] .deck{grid-template-columns:1fr;}
+
+/* hero palette: dark glass in BOTH themes (the one elevated surface) */
+.hero,.rail,.lyPanel{
+  --h-fg:#fff;--h-fg2:rgba(255,255,255,.72);--h-fg3:rgba(255,255,255,.6);--h-fg4:rgba(255,255,255,.55);
+  --h-track:rgba(255,255,255,.16);--h-hair:rgba(255,255,255,.10);--h-green:#34d399;
+}
+.hero{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--h-hair);
+  background:linear-gradient(135deg,var(--hero-g1) 0%,var(--hero-g2) 55%,var(--hero-g3) 100%);box-shadow:0 22px 54px rgba(4,14,26,.46);}
+.bloom{position:absolute;border-radius:50%;pointer-events:none;}
+.bl-a{width:460px;height:460px;left:-140px;top:-220px;background:radial-gradient(circle,var(--bloom-a),transparent 64%);}
+.bl-b{width:460px;height:460px;right:-160px;bottom:-240px;background:radial-gradient(circle,var(--bloom-b),transparent 64%);}
+.hero-inner{position:relative;padding:30px 32px;}
+.frameWrap[data-vp="mobile"] .hero-inner{padding:22px 20px;}
+
+.art-row{display:flex;gap:28px;align-items:center;}
+.frameWrap[data-vp="mobile"] .art-row{flex-direction:column;gap:20px;text-align:center;align-items:center;}
+.art{width:240px;height:240px;flex:0 0 auto;border-radius:18px;position:relative;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.5);background:#0d1420;}
+.frameWrap[data-vp="mobile"] .art{width:min(320px,72vw);height:min(320px,72vw);}
+.art .cover{position:absolute;inset:0;}
+.meta{flex:1;min-width:0;}
+.statusrow{display:flex;align-items:center;gap:8px;}
+.frameWrap[data-vp="mobile"] .statusrow{justify-content:center;}
+.sdot{width:8px;height:8px;border-radius:50%;background:#6b6b72;}
+.sdot.live{background:var(--h-green);box-shadow:0 0 8px var(--h-green);}
+.status{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--h-fg3);}
+.htitle{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-.025em;line-height:1.05;color:var(--h-fg);margin:10px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hartist{color:var(--h-fg2);font-size:16px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hactions{display:flex;align-items:center;gap:9px;margin-top:16px;flex-wrap:wrap;}
+.frameWrap[data-vp="mobile"] .hactions{justify-content:center;}
+.hchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--h-fg2);background:rgba(255,255,255,.1);border-radius:20px;padding:5px 11px;max-width:100%;overflow:hidden;}
+.hchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.spotify{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--h-fg);background:rgba(255,255,255,.1);border:1px solid var(--h-hair);border-radius:20px;padding:5px 12px;cursor:pointer;}
+.spotify:hover{background:rgba(255,255,255,.18);color:var(--h-fg);}
+.spotify .lg{color:#1ed760;font-size:15px;}
+.spotify .ar{font-size:12px;opacity:.7;}
+
+.prog{margin-top:26px;}
+.bar{height:5px;border-radius:4px;background:var(--h-track);position:relative;overflow:hidden;}
+.bar .fill{position:absolute;inset:0 38% 0 0;border-radius:4px;background:linear-gradient(90deg,color-mix(in srgb,var(--ac),#000 20%),var(--ac));}
+.times{display:flex;justify-content:space-between;margin-top:9px;}
+.times span{font-size:12px;color:var(--h-fg4);font-variant-numeric:tabular-nums;}
+
+.tune{display:flex;align-items:center;gap:18px;margin-top:24px;padding-top:22px;border-top:1px solid var(--h-hair);flex-wrap:wrap;row-gap:16px;}
+.listenBtn{display:inline-flex;align-items:center;gap:10px;font-family:var(--sans);font-weight:700;font-size:15px;padding:14px 22px;border:0;border-radius:14px;cursor:pointer;
+  color:var(--ac-ink);background:linear-gradient(135deg,var(--ac),color-mix(in srgb,var(--ac),#fff 16%));box-shadow:0 10px 26px color-mix(in srgb,var(--ac),transparent 60%);}
+.listenBtn i{font-size:19px;}
+.listenBtn:hover{filter:brightness(1.05);}
+.listenBtn.stop{background:rgba(255,255,255,.12);color:var(--h-fg);box-shadow:none;border:1px solid var(--h-hair);}
+.listenBtn:disabled{opacity:.45;cursor:not-allowed;filter:none;}
+.spacer{flex:1;}
+.volgrp{display:flex;align-items:center;gap:11px;color:var(--h-fg2);}
+.volgrp i{font-size:19px;}
+.vbar{width:140px;height:6px;border-radius:4px;background:var(--h-track);position:relative;cursor:pointer;}
+.vbar .vfill{position:absolute;inset:0 32% 0 0;border-radius:4px;background:linear-gradient(90deg,color-mix(in srgb,var(--ac),#000 16%),var(--ac));}
+.vbar .vhandle{position:absolute;left:68%;top:-3px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+
+.idleWrap{display:grid;place-items:center;gap:14px;padding:34px 0 18px;text-align:center;}
+.idleArt{width:150px;height:150px;border-radius:18px;display:grid;place-items:center;color:rgba(255,255,255,.5);font-size:48px;background:rgba(255,255,255,.05);border:1px solid var(--h-hair);}
+.idleText{color:var(--h-fg);font-size:17px;font-weight:700;font-family:var(--disp);}
+.idleSub{color:var(--h-fg4);font-size:13.5px;margin-top:-6px;max-width:320px;}
+
+/* rail = Queue (always) */
+.rail{position:sticky;top:18px;border-radius:20px;overflow:hidden;border:1px solid var(--h-hair);display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--rail-g1),var(--rail-g2));box-shadow:0 22px 54px rgba(4,14,26,.4);max-height:calc(100vh - 150px);}
+.frameWrap[data-vp="mobile"] .rail{position:static;max-height:none;}
+.railHead{padding:18px 20px 12px;display:flex;align-items:center;gap:10px;}
+.railHead .status{color:var(--h-fg3);}
+.qcount{font-size:11px;font-weight:700;color:var(--ac-ink);background:var(--ac);border-radius:20px;padding:2px 9px;}
+.qlist{overflow-y:auto;padding:0 10px 14px;display:flex;flex-direction:column;gap:1px;}
+.qrow{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;}
+.qrow:hover{background:rgba(255,255,255,.05);}
+.qart{width:42px;height:42px;border-radius:9px;flex:0 0 auto;overflow:hidden;position:relative;background:#0d1420;}
+.qart .cover{position:absolute;inset:0;}
+.qmeta{flex:1;min-width:0;}
+.qtitle{font-size:13.5px;font-weight:600;color:var(--h-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qartist{font-size:12px;color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qdur{font-size:11.5px;color:rgba(255,255,255,.52);font-variant-numeric:tabular-nums;}
+
+/* lyrics — collapsible panel below the deck */
+.lyPanel{margin-top:20px;border-radius:20px;overflow:hidden;border:1px solid var(--h-hair);
+  background:linear-gradient(180deg,var(--rail-g1),var(--rail-g2));box-shadow:0 22px 54px rgba(4,14,26,.4);}
+.lyToggle{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:16px 22px;}
+.lyToggle .lt{display:inline-flex;align-items:center;gap:9px;font-family:var(--disp);font-weight:700;font-size:15px;color:var(--h-fg);}
+.lyToggle .chev{color:var(--h-fg3);font-size:18px;transition:transform .2s;}
+.lyPanel.open .chev{transform:rotate(180deg);}
+.lyrics{max-height:300px;overflow-y:auto;padding:4px 22px 24px;display:flex;flex-direction:column;gap:13px;text-align:center;}
+.lyrics p{margin:0;font-family:var(--disp);font-weight:600;font-size:18px;line-height:1.25;color:var(--h-fg4);}
+.lyrics p.cur{color:var(--h-fg);font-size:22px;font-weight:700;}
+.lyrics p.past{color:rgba(255,255,255,.32);}
+
+/* footer — matches admin SiteFooter (two-heart hover swap) */
+.foot{text-align:center;padding:26px 16px 14px;font-size:12px;}
+.foot .credit{color:var(--faint);display:inline-flex;align-items:center;gap:5px;}
+.foot .credit:hover{color:var(--faint);}
+.foot .heart{display:inline-flex;vertical-align:-2px;color:var(--faint);transition:color .15s;}
+.foot .h-fill{display:none;}
+.foot .credit:hover .h-out{display:none;}
+.foot .credit:hover .h-fill{display:inline-flex;}
+.foot .credit:hover .heart{color:#ec4899;}
+
+/* ---- accent picker (admin, in Listener settings) ---- */
+.accwrap{display:flex;gap:16px;align-items:flex-start;margin-top:20px;}
+.presets{display:grid;grid-template-columns:repeat(2,30px);gap:9px;flex:0 0 auto;margin-top:4px;}
+.presets button{width:30px;height:30px;border-radius:8px;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);}
+.presets button:hover{transform:scale(1.07);}
+.presets button.on{outline:2px solid var(--txt);outline-offset:2px;}
+.acccontrols{flex:1;min-width:0;}
+.accrow{display:flex;align-items:stretch;gap:10px;}
+.accrow .hex{height:46px;}
+.bigSwatch{width:54px;height:46px;border:1px solid var(--line2);border-radius:10px;background:var(--sub);cursor:pointer;padding:3px;flex:0 0 auto;}
+.bigSwatch::-webkit-color-swatch{border:none;border-radius:7px;}
+.bigSwatch::-webkit-color-swatch-wrapper{padding:0;}
+.bigSwatch::-moz-color-swatch{border:none;border-radius:7px;}
+.hex{text-transform:uppercase;letter-spacing:.02em;}
+.accsliders{display:grid;gap:13px;margin-top:16px;}
+.accsliders .slbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:6px;}
+.accsliders input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:7px;outline:none;cursor:pointer;border:1px solid var(--line2);}
+.accsliders input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.25);box-shadow:0 1px 3px rgba(0,0,0,.35);cursor:pointer;}
+.accsliders input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.25);box-shadow:0 1px 3px rgba(0,0,0,.35);cursor:pointer;}
+
+/* =========================================================
+   LIGHT RESTRUCTURE direction
+   ========================================================= */
+.device[data-dir="light"]{--ac:var(--ind);--ac-ink:var(--on-ind);}
+.device[data-dir="light"] .hero{background:var(--card);border:1px solid var(--line);box-shadow:var(--sh2);
+  --h-fg:var(--txt);--h-fg2:var(--txt);--h-fg3:var(--faint);--h-fg4:var(--dim);--h-track:var(--sub);--h-hair:var(--line);}
+.device[data-dir="light"] .hero .bloom{display:none;}
+.device[data-dir="light"] .art{box-shadow:var(--sh);}
+.device[data-dir="light"] .hchip{background:var(--ind-s);color:var(--link);}
+.device[data-dir="light"] .spotify{background:var(--sub);border:1px solid var(--line2);color:var(--txt);}
+.device[data-dir="light"] .listenBtn.stop{background:var(--sub);color:var(--txt);border:1px solid var(--line2);}
+.device[data-dir="light"] .rail,.device[data-dir="light"] .lyPanel{background:var(--card);border:1px solid var(--line);box-shadow:var(--sh2);
+  --h-fg:var(--txt);--h-fg2:var(--txt);--h-fg3:var(--faint);--h-fg4:var(--dim);--h-hair:var(--line);}
+.device[data-dir="light"] .qart,.device[data-dir="light"] .art{background:var(--sub);}
+.device[data-dir="light"] .idleArt{background:var(--sub);border:1px solid var(--line);color:var(--faint);}
+.device[data-dir="light"] .qrow:hover,.device[data-dir="light"] .lyrics p.past{background:transparent;}
+.device[data-dir="light"] .qrow:hover{background:rgba(125,125,125,.08);}
+.device[data-dir="light"] .lyrics p.past{color:var(--faint);}
+
+/* =========================================================
+   SETTINGS block mock (console master-detail)
+   ========================================================= */
+.settings{display:grid;grid-template-columns:208px minmax(0,1fr);gap:22px;align-items:start;max-width:940px;margin:0 auto;}
+.frameWrap[data-vp="mobile"] .settings{grid-template-columns:1fr;}
+.side{display:flex;flex-direction:column;gap:2px;}
+.navi{font-size:13px;font-weight:600;color:var(--dim);padding:9px 12px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:9px;}
+.navi i{color:var(--faint);font-size:17px;}
+.navi:hover{color:var(--txt);background:rgba(125,125,125,.08);}
+.navi.act{background:var(--ind-s);color:var(--link);}
+.navi.act i{color:var(--link);}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);padding:22px;}
+:root[data-theme="dark"] .card{background:linear-gradient(180deg,rgba(148,163,184,.13),rgba(148,163,184,.06)),rgba(22,30,43,.72);backdrop-filter:blur(22px) saturate(1.4);border-color:rgba(255,255,255,.12);box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.12);}
+.sc-title{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.01em;margin:0;}
+.sc-sub{color:var(--dim);font-size:13px;margin:4px 0 18px;}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--line);}
+.frow:first-of-type{border-top:0;}
+.frow .ftext{max-width:60%;}
+.frow .ftitle{font-size:14px;font-weight:600;}
+.frow .fhelp{color:var(--dim);font-size:12.5px;margin-top:3px;}
+.flabel{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;display:block;}
+.field{background:var(--sub);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--txt);font-family:var(--sans);width:100%;}
+.field:focus{outline:none;border-color:var(--ind);box-shadow:0 0 0 3px var(--ind-s);}
+.field.ro{background:#f1f1ee;color:var(--dim);}
+:root[data-theme="dark"] .field.ro{background:rgba(255,255,255,.05);}
+.fieldwrap{padding:16px 0 4px;border-top:1px solid var(--line);}
+.sw{width:38px;height:22px;border-radius:20px;position:relative;flex:0 0 auto;border:none;padding:0;cursor:pointer;background:var(--ind);}
+.sw i{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);}
+.hint{color:var(--faint);font-size:12px;margin-top:6px;}
+.copyrow{display:flex;gap:8px;align-items:center;}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--txt);background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+.btn:hover{border-color:var(--ind);color:var(--ind);}
+
+.hide{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span class="brandc">Encore listener — mockup</span>
+  <div class="grp"><span>Direction</span><div class="seg2" id="dir"><button data-v="immersive" class="on">Immersive</button><button data-v="light">Light</button></div></div>
+  <div class="grp"><span>Theme</span><div class="seg2" id="theme"><button data-v="light">Light</button><button data-v="dark" class="on">Dark</button></div></div>
+  <div class="grp"><span>Viewport</span><div class="seg2" id="vp"><button data-v="desktop" class="on">Desktop</button><button data-v="mobile">Mobile</button></div></div>
+  <div class="grp"><span>View</span><div class="seg2" id="view"><button data-v="listener" class="on">Listener</button><button data-v="settings">Settings block</button></div></div>
+  <div class="grp" id="stategrp"><span>State</span><div class="seg2" id="state"><button data-v="playing" class="on">Playing</button><button data-v="idle">Idle</button></div></div>
+</div>
+
+<div class="frameWrap" data-vp="desktop">
+<div class="device" data-dir="immersive">
+
+  <!-- ===================== LISTENER ===================== -->
+  <div id="listenerView">
+  <main class="stage">
+    <header class="top">
+      <div class="brand">
+        <span class="brandTile"><i class="ph-bold ph-music-notes-simple"></i></span>
+        <h1 class="wordmark">The Lounge</h1>
+      </div>
+      <div class="topright">
+        <span class="livechip"><span class="livedot"></span>Live</span>
+        <button class="iconBtn" id="themeBtnPage" title="Toggle theme"><i class="ph-bold ph-sun"></i></button>
+      </div>
+    </header>
+
+    <div class="deck">
+      <!-- HERO -->
+      <section class="hero" aria-label="Now playing">
+        <div class="bloom bl-a"></div><div class="bloom bl-b"></div>
+        <div class="hero-inner">
+
+          <div id="playingBlock">
+            <div class="art-row">
+              <div class="art"><div class="cover" style="background:radial-gradient(130% 120% at 15% 10%,#ff8a5c 0%,#e8486b 42%,#5b1e6b 78%,#140a2e 100%);"></div></div>
+              <div class="meta">
+                <div class="statusrow"><span class="sdot live"></span><span class="status">Now playing</span></div>
+                <p class="htitle">Midnight City</p>
+                <p class="hartist">M83 — Hurry Up, We're Dreaming</p>
+                <div class="hactions">
+                  <span class="hchip"><i class="ph-fill ph-vinyl-record"></i><span>Hurry Up, We're Dreaming</span></span>
+                  <a class="spotify" href="https://open.spotify.com/track/4d4yQ9qqsdmORzNrFkKAJ8" target="_blank" rel="noopener"><i class="ph-fill ph-spotify-logo lg"></i>Open in Spotify<i class="ph-bold ph-arrow-up-right ar"></i></a>
+                </div>
+              </div>
+            </div>
+
+            <div class="prog">
+              <div class="bar"><div class="fill"></div></div>
+              <div class="times"><span>1:34</span><span>4:03</span></div>
+            </div>
+
+            <div class="tune" id="tune"></div>
+          </div>
+
+          <div id="idleBlock" class="idleWrap hide">
+            <div class="idleArt"><i class="ph-fill ph-music-notes"></i></div>
+            <div class="idleText">Nothing playing</div>
+            <div class="idleSub">When someone starts to play music, you'll hear it here.</div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- RAIL = Queue (always) -->
+      <aside class="rail" aria-label="Queue">
+        <div class="railHead"><span class="status">Queue</span><span class="qcount">12</span></div>
+        <div class="qlist">
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#22d3ee,#3b82f6);"></div></div><div class="qmeta"><div class="qtitle">Reunion</div><div class="qartist">M83</div></div><span class="qdur">3:52</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#f472b6,#a855f7);"></div></div><div class="qmeta"><div class="qtitle">Wait</div><div class="qartist">M83</div></div><span class="qdur">5:40</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#34d399,#0ea5e9);"></div></div><div class="qmeta"><div class="qtitle">Outro</div><div class="qartist">M83</div></div><span class="qdur">4:23</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#fbbf24,#f97316);"></div></div><div class="qmeta"><div class="qtitle">Intro</div><div class="qartist">M83 · feat. Zola Jesus</div></div><span class="qdur">5:22</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#60a5fa,#818cf8);"></div></div><div class="qmeta"><div class="qtitle">Steve McQueen</div><div class="qartist">M83</div></div><span class="qdur">4:10</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#f87171,#fb7185);"></div></div><div class="qmeta"><div class="qtitle">Claudia Lewis</div><div class="qartist">M83</div></div><span class="qdur">4:41</span></div>
+          <div class="qrow"><div class="qart"><div class="cover" style="background:linear-gradient(135deg,#2dd4bf,#14b8a6);"></div></div><div class="qmeta"><div class="qtitle">This Bright Flash</div><div class="qartist">M83</div></div><span class="qdur">3:28</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- LYRICS (collapsible, below) -->
+    <section class="lyPanel open" id="lyPanel" aria-label="Lyrics">
+      <button class="lyToggle" id="lyToggle" aria-expanded="true"><span class="lt"><i class="ph-fill ph-microphone-stage"></i>Lyrics</span><i class="ph-bold ph-caret-down chev"></i></button>
+      <div class="lyrics" id="lyrics">
+        <p class="past">Waiting in a car</p>
+        <p class="past">Waiting for a ride in the dark</p>
+        <p class="cur">Look and see her eyes, they glow</p>
+        <p>Waiting in a car</p>
+        <p>Waiting for the right time</p>
+        <p>The city is my church</p>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <a class="credit" href="https://pimusic.stream" target="_blank" rel="noopener">Made with <span class="heart"><i class="ph ph-heart h-out"></i><i class="ph-fill ph-heart h-fill"></i></span> by Mintopia</a>
+    </footer>
+  </main>
+  </div>
+
+  <!-- ===================== SETTINGS BLOCK ===================== -->
+  <div id="settingsView" class="hide">
+  <main class="stage">
+    <div class="settings">
+      <nav class="side">
+        <div class="navi"><i class="ph-fill ph-spotify-logo"></i><span>Soloist</span></div>
+        <div class="navi"><i class="ph-fill ph-speaker-hifi"></i><span>Audio Outputs</span></div>
+        <div class="navi"><i class="ph-fill ph-broadcast"></i><span>Snapcast</span></div>
+        <div class="navi act"><i class="ph-fill ph-headphones"></i><span>Listener</span></div>
+        <div class="navi"><i class="ph-fill ph-webhooks-logo"></i><span>Webhooks</span></div>
+        <div class="navi"><i class="ph-fill ph-plugs"></i><span>WebSocket Relay</span></div>
+        <div class="navi"><i class="ph-fill ph-lock"></i><span>Web Access</span></div>
+      </nav>
+      <div class="detail">
+        <div class="card">
+          <h2 class="sc-title">Listener</h2>
+          <p class="sc-sub">The public listen-along page anyone on your network can open at <code>/listen</code>.</p>
+          <div class="frow">
+            <div class="ftext"><div class="ftitle">Public listener page</div><div class="fhelp">Serve <code>/listen</code> so people on your network can tune in and sing along. No sign-in needed.</div></div>
+            <button class="sw" aria-label="Enabled"><i></i></button>
+          </div>
+          <div class="fieldwrap">
+            <label class="flabel">Display name</label>
+            <input class="field" value="The Lounge" />
+            <div class="hint">Shown as the title on the listener page. Leave blank to show &ldquo;Encore&rdquo;.</div>
+          </div>
+          <div class="fieldwrap">
+            <label class="flabel">Accent colour</label>
+            <div class="accwrap">
+              <div class="presets" id="presets">
+                <button data-c="#2dd4bf" title="Encore teal" style="background:#2dd4bf"></button>
+                <button data-c="#38bdf8" title="Sky" style="background:#38bdf8"></button>
+                <button data-c="#6366f1" title="Indigo" style="background:#6366f1"></button>
+                <button data-c="#a855f7" title="Violet" style="background:#a855f7"></button>
+                <button data-c="#ec4899" title="Magenta" style="background:#ec4899"></button>
+                <button data-c="#f43f5e" title="Rose" style="background:#f43f5e"></button>
+                <button data-c="#fb923c" title="Amber" style="background:#fb923c"></button>
+                <button data-c="#eab308" title="Gold" style="background:#eab308"></button>
+                <button data-c="#22c55e" title="Green" style="background:#22c55e"></button>
+                <button data-c="#3b82f6" title="Blue" style="background:#3b82f6"></button>
+              </div>
+              <div class="acccontrols">
+                <div class="accrow">
+                  <input type="color" id="colorInput" class="bigSwatch" value="#2dd4bf" />
+                  <input class="hex field" id="hexInput" value="#2DD4BF" maxlength="7" />
+                </div>
+                <div class="accsliders">
+                  <div><span class="slbl">Hue</span><input type="range" class="hue" id="hue" min="0" max="360" value="172" /></div>
+                  <div><span class="slbl">Saturation</span><input type="range" class="satr" id="sat" min="0" max="100" value="60" /></div>
+                  <div><span class="slbl">Lightness</span><input type="range" class="litr" id="lit" min="0" max="100" value="51" /></div>
+                </div>
+              </div>
+            </div>
+            <div class="hint">Recolours the listener page for everyone. Text contrast adjusts automatically.</div>
+          </div>
+          <div class="fieldwrap">
+            <label class="flabel">Listener link</label>
+            <div class="copyrow"><input class="field ro" readonly value="http://192.168.1.42/listen" /><button class="btn"><i class="ph-fill ph-copy"></i>Copy</button></div>
+            <div class="hint">Share this link, or show the QR on the screen.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="foot">
+      <a class="credit" href="https://pimusic.stream" target="_blank" rel="noopener">Made with <span class="heart"><i class="ph ph-heart h-out"></i><i class="ph-fill ph-heart h-fill"></i></span> by Mintopia</a>
+    </footer>
+  </main>
+  </div>
+
+</div>
+</div>
+
+<script>
+const root=document.documentElement,device=document.querySelector('.device'),frameWrap=document.querySelector('.frameWrap');
+function wire(id,fn){const box=document.getElementById(id);box.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;[...box.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');fn(b.dataset.v);});}
+wire('dir',v=>device.dataset.dir=v);
+wire('theme',v=>{root.dataset.theme=v;syncThemeBtn();});
+wire('vp',v=>frameWrap.dataset.vp=v);
+wire('view',v=>{document.getElementById('listenerView').classList.toggle('hide',v!=='listener');document.getElementById('settingsView').classList.toggle('hide',v!=='settings');document.getElementById('stategrp').style.visibility=v==='listener'?'visible':'hidden';});
+wire('state',v=>renderState(v));
+
+const themeBtn=document.getElementById('themeBtnPage');
+function syncThemeBtn(){themeBtn.innerHTML=root.dataset.theme==='dark'?'<i class="ph-bold ph-sun"></i>':'<i class="ph-bold ph-moon"></i>';}
+themeBtn.addEventListener('click',()=>{const t=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=t;[...document.getElementById('theme').children].forEach(x=>x.classList.toggle('on',x.dataset.v===t));syncThemeBtn();});
+syncThemeBtn();
+
+/* tune-in block — no description; volume is just icon + slider */
+let streaming=false;
+function tuneHTML(){
+  if(streaming) return `<button class="listenBtn stop" id="toggleBtn"><i class="ph-fill ph-stop"></i>Stop</button><div class="spacer"></div><div class="volgrp"><i class="ph-fill ph-speaker-simple-high"></i><div class="vbar"><div class="vfill"></div><div class="vhandle"></div></div></div>`;
+  return `<button class="listenBtn" id="toggleBtn"><i class="ph-fill ph-headphones"></i>Stream here</button>`;
+}
+function bindTune(){document.getElementById('tune').innerHTML=tuneHTML();const b=document.getElementById('toggleBtn');if(b)b.onclick=()=>{streaming=!streaming;bindTune();};}
+function renderState(v){const p=v==='playing';document.getElementById('playingBlock').classList.toggle('hide',!p);document.getElementById('idleBlock').classList.toggle('hide',p);if(p)bindTune();}
+renderState('playing');
+
+/* lyrics collapse */
+const lyPanel=document.getElementById('lyPanel');
+document.getElementById('lyToggle').addEventListener('click',()=>{const open=lyPanel.classList.toggle('open');document.getElementById('lyrics').classList.toggle('hide',!open);document.getElementById('lyToggle').setAttribute('aria-expanded',open);});
+
+/* ---- accent colour picker (admin, in Listener settings — recolours the listener) ---- */
+const hue=document.getElementById('hue'),sat=document.getElementById('sat'),lit=document.getElementById('lit'),
+  hex=document.getElementById('hexInput'),colorInput=document.getElementById('colorInput'),presets=document.getElementById('presets');
+
+function hslToHex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));const to=x=>Math.round(255*x).toString(16).padStart(2,'0');return'#'+to(f(0))+to(f(8))+to(f(4));}
+function hexToHsl(H){let r=0,g=0,b=0;if(H.length===7){r=parseInt(H.slice(1,3),16);g=parseInt(H.slice(3,5),16);b=parseInt(H.slice(5,7),16);}r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0,l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;}h*=60;}return[Math.round(h),Math.round(s*100),Math.round(l*100)];}
+function luminance(H){let c=[parseInt(H.slice(1,3),16),parseInt(H.slice(3,5),16),parseInt(H.slice(5,7),16)].map(x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);});return .2126*c[0]+.7152*c[1]+.0722*c[2];}
+
+// paint the slider tracks so they read as a live HSL picker
+function paintSliders(){const h=+hue.value,s=+sat.value,l=+lit.value;
+  hue.style.background='linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)';
+  sat.style.background=`linear-gradient(90deg,hsl(${h},0%,${l}%),hsl(${h},100%,${l}%))`;
+  lit.style.background=`linear-gradient(90deg,#000,hsl(${h},${s}%,50%),#fff)`;
+}
+// derive the immersive scene (hero/rail/bloom/page) from the accent — tinted but dark
+function setScene(H){const[h,s]=hexToHsl(H);const ss=Math.min(Math.max(s,28),66);const R=document.documentElement.style;
+  R.setProperty('--hero-g1',`hsl(${h} ${ss}% 9%)`);
+  R.setProperty('--hero-g2',`hsl(${(h+20)%360} ${ss}% 13%)`);
+  R.setProperty('--hero-g3',`hsl(${(h+340)%360} ${ss}% 11%)`);
+  R.setProperty('--rail-g1',`hsl(${h} ${ss}% 9%)`);
+  R.setProperty('--rail-g2',`hsl(${(h+16)%360} ${ss}% 12%)`);
+  R.setProperty('--bloom-a',`hsla(${h} ${Math.min(s,85)}% 56% / .34)`);
+  R.setProperty('--bloom-b',`hsla(${(h+40)%360} ${Math.min(s,85)}% 50% / .24)`);
+  R.setProperty('--pg-b1',`hsla(${h} 70% 46% / .16)`);
+  R.setProperty('--pg-b2',`hsla(${(h+35)%360} 72% 48% / .12)`);
+  R.setProperty('--pg-b3',`hsla(${(h+335)%360} 70% 45% / .13)`);
+}
+function apply(H){
+  device.style.setProperty('--ac',H);
+  // text on the accent adapts to relative brightness (dark ink on light accents, light on dark)
+  device.style.setProperty('--ac-ink',luminance(H)>0.42?'#06120f':'#ffffff');
+  colorInput.value=H;hex.value=H.toUpperCase();paintSliders();setScene(H);markPreset(H);
+}
+function markPreset(H){[...presets.children].forEach(b=>b.classList.toggle('on',b.dataset.c.toLowerCase()===H.toLowerCase()));}
+function fromHsl(){apply(hslToHex(+hue.value,+sat.value,+lit.value));}
+function syncSlidersFromHex(H){const[h,s,l]=hexToHsl(H);hue.value=h;sat.value=s;lit.value=l;}
+[hue,sat,lit].forEach(el=>el.addEventListener('input',fromHsl));
+colorInput.addEventListener('input',()=>{syncSlidersFromHex(colorInput.value);apply(colorInput.value);});
+hex.addEventListener('change',()=>{let v=hex.value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(v)){if(v[0]!=='#')v='#'+v;syncSlidersFromHex(v);apply(v);}});
+presets.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const H=b.dataset.c;syncSlidersFromHex(H);apply(H);});
+syncSlidersFromHex('#2dd4bf');apply('#2dd4bf');
+
+// hash shortcuts for quick preview, e.g. #settings or #light
+{const h=location.hash.toLowerCase();
+ if(h.includes('settings')){document.getElementById('listenerView').classList.add('hide');document.getElementById('settingsView').classList.remove('hide');}
+ if(h.includes('light')){root.dataset.theme='light';syncThemeBtn();}}
+</script>
+</body>
+</html>
