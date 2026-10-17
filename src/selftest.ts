@@ -26,7 +26,7 @@ import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, type ApplyStrategy, type Config } from "./config.js";
 import { renderSnapserverConf, snapStreamSource, writeSnapserverConf, renderConfToFileFromPath } from "./snapserver.js";
 import { signSession, verifySession, parseCookies, sessionUser, webConfigured, SESSION_COOKIE } from "./session.js";
-import { relayView, overlayBootstrap, handleWebRequest } from "./web.js";
+import { relayView, overlayBootstrap, listenBootstrap, handleWebRequest } from "./web.js";
 import { buildArgv, supervise, SoloistControl, Aborted } from "./supervisor.js";
 import { setPipewireDeviceOverride, setDockerMode, isDockerMode, getPipewireDeviceOverride } from "./runtime.js";
 import { parseMainArgs, applyRuntimeFlags, installShutdownHandlers, armShutdownWatchdog, SHUTDOWN_TIMEOUT_MS } from "./main.js";
@@ -2437,6 +2437,10 @@ await test("listener: /listen gated by snapcast.listener", async () => {
   assert.equal(h.handled, true, "flag on: /listen handled without a session");
   assert.equal(h.r.statusCode, 200, "flag on: /listen served unauthenticated");
   assert.match(h.r.body, /Encore — Listen/, "flag on: Listener shell served");
+  assert.match(h.r.body, /window\.__SOLOIST_LISTEN__=/, "Listener embeds bootstrap server-side");
+  assert.ok(h.r.body.includes(JSON.stringify(lcfg.proxy.readonlyToken)), "Listener embeds the Read-only Token");
+  lcfg.proxy.token = "CONTROL-SECRET";
+  assertNoLeak("listenBootstrap", listenBootstrap(lcfg), ["CONTROL-SECRET", "sess"]);
   assert.equal(configSummary(lcfg).listener, true, "listener reported in config summary");
 });
 

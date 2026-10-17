@@ -87,6 +87,24 @@ function serveOverlay(res: ServerResponse, cfg: Config): void {
   res.writeHead(200, { "content-type": CONTENT_TYPES.html }).end(html);
 }
 
+// Embeds only the Read-only Token for the Listener page's observe-only socket.
+export function listenBootstrap(cfg: Config): string {
+  const payload = JSON.stringify({ token: cfg.proxy.readonlyToken }).replace(/</g, "\\u003c");
+  return `<script>window.__SOLOIST_LISTEN__=${payload};</script>`;
+}
+
+function serveListen(res: ServerResponse, cfg: Config): void {
+  let html: string;
+  try {
+    html = readFileSync(resolve(WEB_ROOT, "listen.html"), "utf8");
+  } catch {
+    res.writeHead(404).end("Not found\n");
+    return;
+  }
+  html = html.replace("<!--__LISTEN_BOOTSTRAP__-->", () => listenBootstrap(cfg));
+  res.writeHead(200, { "content-type": CONTENT_TYPES.html }).end(html);
+}
+
 // Relay config (never the Authorization value) plus live connection status.
 export function relayView(cfg: Config, status?: RelayStatus): unknown {
   const r = cfg.relay;
@@ -330,7 +348,7 @@ export function handleWebRequest(
   // Open (unauthenticated) and opt-in: 404 unless snapcast.listener is on.
   if (path === "/listen" && method === "GET") {
     if (!cfg.listener) return false;
-    serveAsset(res, "/listen.html");
+    serveListen(res, cfg);
     return true;
   }
 
