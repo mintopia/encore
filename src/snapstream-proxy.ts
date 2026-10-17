@@ -8,7 +8,6 @@ const log = makeLog("snapstream");
 export const SNAPSTREAM_PATH = "/stream";
 export const SNAPSERVER_HTTP_PORT = 1780;
 
-// A Web Session cookie must not leak to Snapserver, which needs no credentials.
 const DROPPED_HEADERS = new Set(["cookie", "authorization"]);
 
 export function buildUpstreamRequest(req: IncomingMessage, port: number): string {

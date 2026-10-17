@@ -20,7 +20,6 @@ export function renderSnapserverConf(cfg: Config): string {
   return tmpl
     .replaceAll("{{stream}}", snapStreamSource(cfg))
     .replaceAll("{{snapweb}}", cfg.snapweb || cfg.listener ? "true" : "false")
-    // Snapweb alone keeps its LAN-wide port; the Listener only needs the loopback hop from the Proxy.
     .replaceAll("{{bind}}", cfg.snapweb ? "0.0.0.0" : "127.0.0.1");
 }
 

@@ -1,5 +1,3 @@
-// Snapcast stream protocol v2 (snapserver v0.35.0), clean-room from the public description. DOM/Node-free so browser and selftests share it.
-
 export const BASE_HEADER_SIZE = 26;
 export const STREAM_PROTOCOL_VERSION = 2;
 
@@ -160,7 +158,6 @@ export function decodeMessage(buf: Uint8Array): SnapMessage {
   }
 }
 
-// Server-minus-client clock offset in ms: (c2s - s2c) / 2, so symmetric path delay cancels.
 export function clockOffsetMs(reply: { header: BaseHeader; latency: Timeval }, clientReceivedMs: number): number {
   const c2s = timevalToMs(reply.latency);
   const s2c = clientReceivedMs - timevalToMs(reply.header.sent);

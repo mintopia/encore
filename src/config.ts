@@ -138,7 +138,7 @@ export interface Config {
   streamName: string;
   listener: boolean;             // serve the public listen-only /listen page (the Listener)
   snapweb: boolean;              // Docker only: serve the Snapweb UI ([http] enabled in snapserver.conf)
-  snapcastServerConfig: string; // Docker only: snapserver.conf template ({{stream}}, {{snapweb}}, {{bind}} placeholders)
+  snapcastServerConfig: string; // Docker only: snapserver.conf template ({{stream}}, {{snapweb}} placeholders)
   autoplay: boolean;
   webhooks: WebhooksConfig;
   relay: RelayConfig;

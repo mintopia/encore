@@ -1704,7 +1704,6 @@ await test("APPLY_STRATEGY matches the real restart detectors", async () => {
 
   for (const { path, strategy } of leaves) {
     const base = defaultConfig();
-    // Either flag enables [http], so the listener only moves the conf when Snapweb is off.
     if (path.join(".") === "listener") base.snapweb = false;
     const mut = structuredClone(base) as Record<string, any>;
     let o: any = mut;
