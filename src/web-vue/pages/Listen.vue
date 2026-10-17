@@ -4,10 +4,11 @@ import { readTrack, readPlayback, readQueue, applyAnchor, nowMs, fmtTime, type T
 import { SnapClient, type SnapState } from "../lib/snapclient";
 import { PhSun, PhMoon, PhHeadphones, PhStop, PhSpeakerSimpleHigh, PhSpotifyLogo, PhVinylRecord, PhCaretDown } from "@phosphor-icons/vue";
 import SiteFooter from "../components/SiteFooter.vue";
+import { hexToHsl, luminance } from "../lib/color";
 import { useTheme } from "../composables/useTheme";
 import { currentIndex, fetchSyncedLyrics, type LyricLine } from "../lib/overlay-engine";
 
-const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string; displayName?: string } }).__SOLOIST_LISTEN__;
+const boot = (window as unknown as { __SOLOIST_LISTEN__?: { token?: string; displayName?: string; accent?: string } }).__SOLOIST_LISTEN__;
 
 const track = ref<Track | null>(null);
 const queue = ref<Track[]>([]);
@@ -22,25 +23,9 @@ const positionMs = ref(0);
 const durationMs = computed(() => track.value?.durationMs ?? 0);
 const pct = computed(() => (durationMs.value > 0 ? Math.min(100, (positionMs.value / durationMs.value) * 100) : 0));
 
-const ACCENT = "#14b8a6";
+const ACCENT = /^#[0-9a-f]{6}$/i.test(boot?.accent ?? "") ? boot!.accent! : "#14b8a6";
 const spotifyId = computed(() => /^spotify:track:([A-Za-z0-9]+)$/.exec(track.value?.uri ?? "")?.[1] ?? "");
 const spotifyUrl = computed(() => (spotifyId.value ? `https://open.spotify.com/track/${spotifyId.value}` : ""));
-
-function hexToHsl(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
-  if (d === 0) return [0, 0, l * 100];
-  const sat = d / (1 - Math.abs(2 * l - 1));
-  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return [(h * 60 + 360) % 360, sat * 100, l * 100];
-}
-
-function luminance(hex: string): number {
-  const n = parseInt(hex.slice(1), 16);
-  const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
-  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-}
 
 const sceneVars = computed(() => {
   const [h, s] = hexToHsl(ACCENT);

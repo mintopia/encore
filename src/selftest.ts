@@ -25,7 +25,7 @@ import { BASE_HEADER_SIZE, MessageType, clockOffsetMs, decodeHeader, decodeMessa
 import { SNAPSTREAM_PATH, proxyStreamUpgrade, handleListenerRequest, scopeSetVolume, mintListenerId, validListenerId } from "./snapstream-proxy.js";
 import { once } from "node:events";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
-import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, normalizeConfig, type ApplyStrategy, type Config } from "./config.js";
+import { loadConfig, saveConfig, ensureSecrets, ConfigError, coerceBool, coerceInt, coerceFloat, maskConfig, configSummary, applyApiConfig, defaultConfig, soloistReady, hashPassword, verifyPassword, isPasswordHashed, MAX_OUTPUT_DELAY_MS, DEFAULT_OVERLAY, DEFAULT_SNAPSERVER_CONFIG, APPLY_STRATEGY, normalizeConfig, normalizeHexColor, type ApplyStrategy, type Config } from "./config.js";
 import { renderSnapserverConf, snapStreamSource, writeSnapserverConf, renderConfToFileFromPath } from "./snapserver.js";
 import { signSession, verifySession, parseCookies, sessionUser, webConfigured, SESSION_COOKIE } from "./session.js";
 import { relayView, overlayBootstrap, listenBootstrap, handleWebRequest } from "./web.js";
@@ -2448,6 +2448,12 @@ await test("listener: /listen gated by snapcast.listener", async () => {
   assert.equal(normalizeConfig(lcfg).listenerDisplayName, "", "display name defaults blank");
   lcfg.listenerDisplayName = "Party </script>";
   assert.equal(normalizeConfig(lcfg).listenerDisplayName, "Party </script>", "display name round-trips through config");
+  assert.equal(normalizeConfig(lcfg).listenerAccent, "", "accent defaults blank (brand teal)");
+  for (const [raw, want] of [["#AbCdEf", "#abcdef"], ["14b8a6", "#14b8a6"], ["red", ""], ["#12345", ""]] as const) {
+    assert.equal(normalizeHexColor(raw), want, `accent ${raw}`);
+  }
+  lcfg.listenerAccent = "#8b5cf6";
+  assert.ok(listenBootstrap(lcfg).includes('"accent":"#8b5cf6"'), "accent injected into Listener bootstrap");
   const lb = listenBootstrap(lcfg);
   assert.ok(lb.includes("Party \\u003c/script>"), "display name injected into bootstrap, '<' escaped");
   assert.ok(!lb.includes("</script>Party") && lb.split("</script>").length === 2, "display name cannot close the script tag");
